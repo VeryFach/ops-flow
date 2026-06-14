@@ -12,6 +12,14 @@ describe('AuthController', () => {
         login: jest.fn(),
     };
 
+    // Mock Response object
+    const mockResponse = () => {
+        const res: any = {};
+        res.cookie = jest.fn().mockReturnValue(res);
+        res.clearCookie = jest.fn().mockReturnValue(res);
+        return res;
+    };
+
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             controllers: [AuthController],
@@ -37,15 +45,12 @@ describe('AuthController', () => {
         it('should register a user and set cookie', async () => {
             const mockToken = { access_token: 'jwt-token' };
             mockAuthService.register.mockResolvedValue(mockToken);
+            const res = mockResponse();
 
-            const mockResponse = {
-                cookie: jest.fn(),
-            } as any;
-
-            const result = await controller.register(registerDto, mockResponse);
+            const result = await controller.register(registerDto, res);
 
             expect(result).toEqual(mockToken);
-            expect(mockResponse.cookie).toHaveBeenCalled();
+            expect(res.cookie).toHaveBeenCalled();
             expect(mockAuthService.register).toHaveBeenCalledWith(registerDto);
         });
     });
@@ -59,29 +64,24 @@ describe('AuthController', () => {
         it('should login user and set cookie', async () => {
             const mockToken = { access_token: 'jwt-token' };
             mockAuthService.login.mockResolvedValue(mockToken);
+            const res = mockResponse();
 
-            const mockResponse = {
-                cookie: jest.fn(),
-            } as any;
-
-            const result = await controller.login(loginDto, mockResponse);
+            const result = await controller.login(loginDto, res);
 
             expect(result).toEqual(mockToken);
-            expect(mockResponse.cookie).toHaveBeenCalled();
+            expect(res.cookie).toHaveBeenCalled();
             expect(mockAuthService.login).toHaveBeenCalledWith(loginDto);
         });
     });
 
     describe('logout', () => {
         it('should clear cookie and return success message', async () => {
-            const mockResponse = {
-                clearCookie: jest.fn(),
-            } as any;
+            const res = mockResponse();
 
-            const result = await controller.logout(mockResponse);
+            const result = await controller.logout(res);
 
             expect(result).toEqual({ message: 'Logged out successfully' });
-            expect(mockResponse.clearCookie).toHaveBeenCalled();
+            expect(res.clearCookie).toHaveBeenCalled();
         });
     });
 });

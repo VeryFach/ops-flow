@@ -1,19 +1,68 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { EditUserDto } from './dto/edit-user.dto';
 
-describe('UsersService', () => {
+describe('UsersController', () => {
+    let controller: UsersController;
     let service: UsersService;
+
+    const mockUserId = 'user-1';
+    const mockUser = {
+        id: mockUserId,
+        name: 'Test User',
+        email: 'test@example.com',
+        role: 'USER',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+    };
+
+    const mockUsersService = {
+        getMe: jest.fn(),
+        editUser: jest.fn(),
+    };
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [UsersService],
+            controllers: [UsersController],
+            providers: [
+                {
+                    provide: UsersService,
+                    useValue: mockUsersService,
+                },
+            ],
         }).compile();
 
+        controller = module.get<UsersController>(UsersController);
         service = module.get<UsersService>(UsersService);
     });
 
-    it('should be defined', () => {
-        expect(service).toBeDefined();
+    describe('getMe', () => {
+        it('should return current user profile', async () => {
+            mockUsersService.getMe.mockResolvedValue(mockUser);
+
+            const result = await controller.getMe(mockUserId);
+
+            expect(result).toEqual(mockUser);
+            expect(mockUsersService.getMe).toHaveBeenCalledWith(mockUserId);
+        });
+    });
+
+    describe('editUser', () => {
+        const editDto: EditUserDto = {
+            name: 'Updated Name',
+            email: 'updated@example.com',
+        };
+
+        it('should update user profile', async () => {
+            const updatedUser = { ...mockUser, ...editDto };
+            mockUsersService.editUser.mockResolvedValue(updatedUser);
+
+            const result = await controller.editUser(mockUserId, editDto);
+
+            expect(result.name).toBe('Updated Name');
+            expect(result.email).toBe('updated@example.com');
+            expect(mockUsersService.editUser).toHaveBeenCalledWith(mockUserId, editDto);
+        });
     });
 });

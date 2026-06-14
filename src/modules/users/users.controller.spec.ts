@@ -1,41 +1,68 @@
-import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
-import {
-    ApiTags,
-    ApiOperation,
-    ApiBearerAuth,
-    ApiResponse,
-} from '@nestjs/swagger';
-import { UsersService } from './users.service.js';
-import { JwtGuard } from '../../common/guards/jwt.guard.js';
-import { GetUser } from '../../common/decorators/get-user.decorator.js';
-import { EditUserDto } from './dto/edit-user.dto.js';
+import { Test, TestingModule } from '@nestjs/testing';
+import { UsersController } from './users.controller';
+import { UsersService } from './users.service';
+import { EditUserDto } from './dto/edit-user.dto';
 
-@ApiTags('users')
-@ApiBearerAuth()
-@UseGuards(JwtGuard)
-@Controller('users')
-export class UsersController {
-    constructor(private readonly usersService: UsersService) { }
+describe('UsersController', () => {
+    let controller: UsersController;
+    let service: UsersService;
 
-    /**
-     * Endpoint untuk mengambil data profil user yang sedang login saat ini.
-     */
-    @Get('me')
-    @ApiOperation({ summary: 'Get current user profile' })
-    @ApiResponse({ status: 200, description: 'Returns the current user' })
-    @ApiResponse({ status: 401, description: 'Unauthorized' })
-    getMe(@GetUser('id') userId: string) {
-        return this.usersService.getMe(userId);
-    }
+    const mockUserId = 'user-1';
+    const mockUser = {
+        id: mockUserId,
+        name: 'Test User',
+        email: 'test@example.com',
+        role: 'USER',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+    };
 
-    /**
-     * Endpoint untuk mengubah/update data profil user yang sedang login.
-     */
-    @Patch()
-    @ApiOperation({ summary: 'Update current user profile' })
-    @ApiResponse({ status: 200, description: 'User updated successfully' })
-    @ApiResponse({ status: 401, description: 'Unauthorized' })
-    editUser(@GetUser('id') userId: string, @Body() dto: EditUserDto) {
-        return this.usersService.editUser(userId, dto);
-    }
-}
+    const mockUsersService = {
+        getMe: jest.fn(),
+        editUser: jest.fn(),
+    };
+
+    beforeEach(async () => {
+        const module: TestingModule = await Test.createTestingModule({
+            controllers: [UsersController],
+            providers: [
+                {
+                    provide: UsersService,
+                    useValue: mockUsersService,
+                },
+            ],
+        }).compile();
+
+        controller = module.get<UsersController>(UsersController);
+        service = module.get<UsersService>(UsersService);
+    });
+
+    describe('getMe', () => {
+        it('should return current user profile', async () => {
+            mockUsersService.getMe.mockResolvedValue(mockUser);
+
+            const result = await controller.getMe(mockUserId);
+
+            expect(result).toEqual(mockUser);
+            expect(mockUsersService.getMe).toHaveBeenCalledWith(mockUserId);
+        });
+    });
+
+    describe('editUser', () => {
+        const editDto: EditUserDto = {
+            name: 'Updated Name',
+            email: 'updated@example.com',
+        };
+
+        it('should update user profile', async () => {
+            const updatedUser = { ...mockUser, ...editDto };
+            mockUsersService.editUser.mockResolvedValue(updatedUser);
+
+            const result = await controller.editUser(mockUserId, editDto);
+
+            expect(result.name).toBe('Updated Name');
+            expect(result.email).toBe('updated@example.com');
+            expect(mockUsersService.editUser).toHaveBeenCalledWith(mockUserId, editDto);
+        });
+    });
+});

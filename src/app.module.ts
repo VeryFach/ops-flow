@@ -9,6 +9,7 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { DeploymentsModule } from './modules/deployments/deployments.module';
+import { AuditModule } from './modules/audit/audit.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { DeploymentsModule } from './modules/deployments/deployments.module';
     TasksModule,
     TelegramModule,
     DeploymentsModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [AppService],

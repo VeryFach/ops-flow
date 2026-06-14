@@ -1,0 +1,72 @@
+name: OpsFlow CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: opsflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
+    env:
+      DATABASE_URL: postgresql://postgres:password@localhost:5432/opsflow_test
+      JWT_SECRET: test-secret
+      TELEGRAM_BOT_TOKEN: fake-token
+      TELEGRAM_CHAT_ID: fake-chat-id
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run Database Migration
+        run: npx prisma migrate deploy
+
+      - name: Run Linter
+        run: npm run lint
+
+      - name: Run Unit Test
+        run: npm run test
+
+      - name: Run E2E Test
+        run: npm run test:e2e
+
+      - name: Build Application
+        run: npm run build

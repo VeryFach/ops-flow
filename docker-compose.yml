@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  dev-db:
+    image: postgres:17
+    container_name: opsflow-db
+    restart: always
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123
+      POSTGRES_DB: opsflow
+    volumes:
+      - ops-flow-db-data:/var/lib/postgresql/data
+    networks:
+      - ops-flow
+
+  redis:
+    image: redis:7
+    container_name: opsflow-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - ops-flow
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: opsflow-api
+    restart: always
+    ports:
+      - "3001:3000"
+    env_file:
+      - .env.docker
+    volumes:
+      - .:/app
+    command: sh -c "npx prisma generate && npm run start:dev"
+    depends_on:
+      - dev-db
+      - redis
+    networks:
+      - ops-flow
+
+volumes:
+  ops-flow-db-data:
+
+networks:
+  ops-flow:

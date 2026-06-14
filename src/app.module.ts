@@ -10,6 +10,7 @@ import { ProjectsModule } from './modules/projects/projects.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { DeploymentsModule } from './modules/deployments/deployments.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { StatusHistoryModule } from './modules/status-history/status-history.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AuditModule } from './modules/audit/audit.module';
     TelegramModule,
     DeploymentsModule,
     AuditModule,
+    StatusHistoryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

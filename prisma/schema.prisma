@@ -6,6 +6,171 @@ datasource db {
   provider = "postgresql"
 }
 
+model User {
+  id                String              @id @default(uuid())
+  name              String
+  email             String              @unique
+  password          String
+  role              UserRole            @default(USER)
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+  deletedAt         DateTime?           @map("deleted_at")
+  auditLogs         AuditLog[]
+  deployments       Deployment[]        @relation("DeploymentExecutor")
+  projectMembers    ProjectMember[]
+  projects          Project[]           @relation("ProjectCreator")
+  taskAssignments   TaskAssignee[]
+  taskStatusChanges TaskStatusHistory[] @relation("TaskStatusChanger")
+  workspaceMembers  WorkspaceMember[]
+  ownedWorkspaces   Workspace[]         @relation("WorkspaceOwner")
+
+  @@map("users")
+}
+
+model WorkspaceMember {
+  workspaceId String              @map("workspace_id")
+  userId      String              @map("user_id")
+  role        WorkspaceMemberRole
+  createdAt   DateTime            @default(now()) @map("created_at")
+  user        User                @relation(fields: [userId], references: [id])
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id])
+
+  @@id([workspaceId, userId])
+  @@map("workspace_members")
+}
+
+model Workspace {
+  id        String            @id @default(uuid())
+  name      String
+  slug      String            @unique
+  ownerId   String            @map("owner_id")
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+  deletedAt DateTime?         @map("deleted_at")
+  auditLogs AuditLog[]
+  projects  Project[]
+  members   WorkspaceMember[]
+  owner     User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+
+  @@map("workspaces")
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  action      AuditAction
+  entity      String
+  entityId    String      @map("entity_id")
+  userId      String?     @map("user_id")
+  oldValue    Json?       @map("old_value")
+  newValue    Json?       @map("new_value")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  workspaceId String      @map("workspace_id")
+  ipAddress   String?     @map("ip_address")
+  userAgent   String?     @map("user_agent")
+  user        User?       @relation(fields: [userId], references: [id])
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id])
+
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}
+
+model Project {
+  id             String          @id @default(uuid())
+  name           String
+  description    String?
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  createdById    String          @map("created_by")
+  deletedAt      DateTime?       @map("deleted_at")
+  workspaceId    String?         @map("workspace_id")
+  deployments    Deployment[]
+  projectMembers ProjectMember[]
+  createdBy      User            @relation("ProjectCreator", fields: [createdById], references: [id])
+  workspace      Workspace?      @relation(fields: [workspaceId], references: [id])
+  tasks          Task[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  projectId String
+  userId    String
+  role      ProjectMemberRole
+  createdAt DateTime          @default(now()) @map("created_at")
+  project   Project           @relation(fields: [projectId], references: [id])
+  user      User              @relation(fields: [userId], references: [id])
+
+  @@id([projectId, userId])
+  @@map("project_members")
+}
+
+model Task {
+  id              String              @id @default(uuid())
+  title           String
+  description     String?
+  status          TaskStatus          @default(TODO)
+  priority        Priority            @default(MEDIUM)
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  projectId       String              @map("project_id")
+  deletedAt       DateTime?           @map("deleted_at")
+  deploymentTasks DeploymentTask[]
+  assignees       TaskAssignee[]
+  statusHistory   TaskStatusHistory[]
+  project         Project             @relation(fields: [projectId], references: [id])
+
+  @@map("tasks")
+}
+
+model TaskAssignee {
+  taskId     String
+  userId     String
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  task       Task     @relation(fields: [taskId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@id([taskId, userId])
+  @@map("task_assignees")
+}
+
+model TaskStatusHistory {
+  id          String     @id @default(uuid())
+  taskId      String     @map("task_id")
+  changedById String     @map("changed_by")
+  fromStatus  TaskStatus @map("from_status")
+  toStatus    TaskStatus @map("to_status")
+  changedAt   DateTime   @default(now()) @map("changed_at")
+  changedBy   User       @relation("TaskStatusChanger", fields: [changedById], references: [id])
+  task        Task       @relation(fields: [taskId], references: [id])
+
+  @@map("task_status_history")
+}
+
+model Deployment {
+  id           String           @id @default(uuid())
+  version      String
+  status       DeploymentStatus @default(PENDING)
+  deployedAt   DateTime         @default(now()) @map("deployed_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  deployedById String?          @map("deployed_by")
+  projectId    String           @map("project_id")
+  tasks        DeploymentTask[]
+  deployedBy   User?            @relation("DeploymentExecutor", fields: [deployedById], references: [id])
+  project      Project          @relation(fields: [projectId], references: [id])
+
+  @@map("deployments")
+}
+
+model DeploymentTask {
+  deploymentId String     @map("deployment_id")
+  taskId       String     @map("task_id")
+  deployment   Deployment @relation(fields: [deploymentId], references: [id])
+  task         Task       @relation(fields: [taskId], references: [id])
+
+  @@id([deploymentId, taskId])
+  @@map("deployment_tasks")
+}
+
 enum UserRole {
   SUPER_ADMIN
   USER
@@ -48,200 +213,4 @@ enum ProjectMemberRole {
   ADMIN
   ENGINEER
   VIEWER
-}
-
-model User {
-  id          String    @id @default(uuid())
-  name        String
-  email       String    @unique
-  password    String
-  role        UserRole  @default(USER)
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-
-  // Relasi yang sudah ada
-  projects    Project[]   @relation("ProjectCreator")
-  taskAssignments TaskAssignee[]
-  deployments Deployment[] @relation("DeploymentExecutor")
-
-  // Relasi baru untuk Multi-Workspace
-  ownedWorkspaces   Workspace[]        @relation("WorkspaceOwner")
-  workspaceMembers  WorkspaceMember[]
-  auditLogs         AuditLog[]
-  projectMembers ProjectMember[]
-  taskStatusChanges TaskStatusHistory[] @relation("TaskStatusChanger")
-
-  deletedAt DateTime? @map("deleted_at")
-
-  @@map("users")
-}
-
-model WorkspaceMember {
-  workspaceId String              @map("workspace_id")
-  userId      String              @map("user_id")
-  role        WorkspaceMemberRole
-
-  workspace   Workspace           @relation(fields: [workspaceId], references: [id])
-  user        User                @relation(fields: [userId], references: [id])
-
-  createdAt   DateTime            @default(now()) @map("created_at")
-
-  @@id([workspaceId, userId])
-  @@map("workspace_members")
-}
-
-model Workspace {
-  id        String @id @default(uuid())
-  name      String
-  slug      String @unique
-
-  ownerId   String @map("owner_id")
-  owner     User   @relation("WorkspaceOwner", fields: [ownerId], references: [id])
-
-  members   WorkspaceMember[]
-  projects  Project[]
-  auditLogs AuditLog[]
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  @@map("workspaces")
-}
-
-model AuditLog {
-  id        String      @id @default(uuid())
-  action    AuditAction
-  entity    String      // 'Project', 'Task', 'Deployment', 'Workspace', etc.
-  entityId  String      @map("entity_id")
-  userId    String?     @map("user_id")
-  oldValue  Json?       @map("old_value")
-  newValue  Json?       @map("new_value")
-  createdAt DateTime    @default(now()) @map("created_at")
-
-  user      User?       @relation(fields: [userId], references: [id])
-
-  workspaceId String @map("workspace_id")
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
-
-  ipAddress String? @map("ip_address")
-  userAgent String? @map("user_agent")
-
-  @@index([entity, entityId])
-  @@map("audit_logs")
-}
-
-// Model Project: tambahkan workspaceId (opsional untuk backward compatibility)
-model Project {
-  id          String    @id @default(uuid())
-  name        String
-  description String?
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-
-  createdBy   User      @relation("ProjectCreator", fields: [createdById], references: [id])
-  createdById String    @map("created_by")
-
-  deletedAt DateTime? @map("deleted_at")
-
-  workspaceId String?   @map("workspace_id")
-  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
-
-  tasks       Task[]
-  projectMembers ProjectMember[]
-  deployments Deployment[]
-
-  @@map("projects")
-}
-
-model ProjectMember {
-  projectId String
-  userId    String
-  role      ProjectMemberRole
-
-  project   Project @relation(fields: [projectId], references: [id])
-  user      User    @relation(fields: [userId], references: [id])
-
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@id([projectId, userId])
-  @@map("project_members")
-}
-
-model Task {
-  id          String      @id @default(uuid())
-  title       String
-  description String?
-  status      TaskStatus  @default(TODO)
-  priority    Priority    @default(MEDIUM)
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  projectId   String      @map("project_id")
-  project     Project     @relation(fields: [projectId], references: [id])
-
-  deploymentTasks DeploymentTask[]
-  assignees TaskAssignee[]
-  statusHistory TaskStatusHistory[]
-
-  @@map("tasks")
-}
-
-model TaskAssignee {
-  taskId     String
-  userId     String
-  assignedAt DateTime @default(now()) @map("assigned_at")
-
-  task       Task @relation(fields: [taskId], references: [id])
-  user       User @relation(fields: [userId], references: [id])
-
-  @@id([taskId, userId])
-  @@map("task_assignees")
-}
-
-model TaskStatusHistory {
-  id          String @id @default(uuid())
-
-  taskId      String @map("task_id")
-  changedById String @map("changed_by")
-
-  fromStatus  TaskStatus @map("from_status")
-  toStatus    TaskStatus @map("to_status")
-
-  changedAt   DateTime @default(now()) @map("changed_at")
-
-  task        Task @relation(fields: [taskId], references: [id])
-  changedBy User @relation("TaskStatusChanger", fields: [changedById], references: [id])
-
-  @@map("task_status_history")
-}
-
-model Deployment {
-  id          String         @id @default(uuid())
-  version     String
-  status      DeploymentStatus @default(PENDING)
-  deployedAt  DateTime       @default(now()) @map("deployed_at")
-  createdAt   DateTime       @default(now()) @map("created_at")
-
-  projectId String @map("project_id")
-  project   Project @relation(fields: [projectId], references: [id])
-
-  deployedBy  User?          @relation("DeploymentExecutor", fields: [deployedById], references: [id])
-  deployedById String?       @map("deployed_by")
-
-  tasks DeploymentTask[]
-
-  @@map("deployments")
-}
-
-model DeploymentTask {
-  deploymentId String @map("deployment_id")
-  taskId       String @map("task_id")
-
-  deployment   Deployment @relation(fields: [deploymentId], references: [id])
-  task         Task @relation(fields: [taskId], references: [id])
-
-  @@id([deploymentId, taskId])
-  @@map("deployment_tasks")
 }

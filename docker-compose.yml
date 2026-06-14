@@ -15,6 +15,11 @@ services:
       - ops-flow-db-data:/var/lib/postgresql/data
     networks:
       - ops-flow
+    healthcheck:  # Tambahkan health check
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7
@@ -24,6 +29,11 @@ services:
       - "6379:6379"
     networks:
       - ops-flow
+    healthcheck:  # Health check untuk redis
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   api:
     build:
@@ -35,12 +45,18 @@ services:
       - "3001:3000"
     env_file:
       - .env.docker
+    environment:  # Tambahkan environment langsung sebagai backup
+      - DATABASE_URL=postgresql://postgres:123@dev-db:5432/opsflow?schema=public
+      - JWT_SECRET=your-super-secret-key-change-this
+      - JWT_EXPIRES_IN=1d
     volumes:
       - .:/app
-    command: sh -c "npx prisma generate && npm run start:dev"
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm run start:dev"
     depends_on:
-      - dev-db
-      - redis
+      dev-db:
+        condition: service_healthy  # Tunggu DB benar-benar siap
+      redis:
+        condition: service_healthy  # Tunggu Redis siap
     networks:
       - ops-flow
 
@@ -49,3 +65,4 @@ volumes:
 
 networks:
   ops-flow:
+    driver: bridge

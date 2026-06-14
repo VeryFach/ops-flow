@@ -6,6 +6,7 @@ import { TelegramModule } from './modules/notifications/telegram.module'
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
+import { ProjectsModule } from './modules/projects/projects.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     AuthModule,
     UsersModule,
     WorkspacesModule,
+    ProjectsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class TelegramService {
-    private botToken: String;
+    private botToken: string;
     private chatId: string;
 
     constructor(private configService: ConfigService) {
@@ -29,7 +29,10 @@ export class TelegramService {
             return response.data;
         } catch (error) {
             if (axios.isAxiosError(error)) {
-                console.error('Telegram send error:', error.response?.data || error.message);
+                console.error(
+                    'Telegram send error:',
+                    error.response?.data || error.message,
+                );
             } else if (error instanceof Error) {
                 console.error('Telegram send error:', error.message);
             } else {
@@ -54,10 +57,36 @@ export class TelegramService {
             return { success: false, error: errorDetail };
         }
     }
-    
+
     async getBotInfo() {
         const url = `https://api.telegram.org/bot${this.botToken}/getMe`;
         const response = await axios.get(url);
         return response.data;
+    }
+
+    // ✅ TAMBAHKAN METHOD INI
+    async getUpdates(): Promise<any> {
+        if (!this.botToken) {
+            throw new Error('TELEGRAM_BOT_TOKEN is missing');
+        }
+
+        const url = `https://api.telegram.org/bot${this.botToken}/getUpdates`;
+
+        try {
+            const response = await axios.get(url);
+            return response.data;
+        } catch (error) {
+            if (isAxiosError(error)) {
+                console.error(
+                    'Telegram getUpdates error:',
+                    error.response?.data || error.message,
+                );
+            } else if (error instanceof Error) {
+                console.error('Telegram getUpdates error:', error.message);
+            } else {
+                console.error('Telegram getUpdates error:', error);
+            }
+            throw error;
+        }
     }
 }

@@ -3,7 +3,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { AddProjectMemberDto } from './dto/add-project-member.dto';
-import { ProjectMemberRole } from '@prisma/client';
+import { ProjectMemberRole, WorkspaceMemberRole } from '@prisma/client';
+
+// Define interface for where condition
+interface ProjectWhereCondition {
+    workspaceId?: string;
+    projectMembers?: {
+        some: {
+            userId: string;
+        };
+    };
+}
 
 @Injectable()
 export class ProjectsService {
@@ -50,7 +60,7 @@ export class ProjectsService {
     }
 
     async findAll(userId: string, workspaceId?: string) {
-        const whereCondition: any = {
+        const whereCondition: ProjectWhereCondition = {
             projectMembers: {
                 some: {
                     userId: userId,
@@ -63,7 +73,7 @@ export class ProjectsService {
         }
 
         const projects = await this.prisma.project.findMany({
-            where: whereCondition,
+            where: whereCondition as any,
             include: {
                 createdBy: {
                     select: {
@@ -215,8 +225,8 @@ export class ProjectsService {
         });
 
         const isWorkspaceOwnerOrAdmin = workspaceMember &&
-            (workspaceMember.role === 'OWNER' || workspaceMember.role === 'ADMIN');
-        const isProjectAdmin = projectMember && projectMember.role === 'ADMIN';
+            (workspaceMember.role === WorkspaceMemberRole.OWNER || workspaceMember.role === WorkspaceMemberRole.ADMIN);
+        const isProjectAdmin = projectMember && projectMember.role === ProjectMemberRole.ADMIN;
 
         if (!isWorkspaceOwnerOrAdmin && !isProjectAdmin) {
             throw new ForbiddenException('Only workspace admin or project admin can delete project');
@@ -261,10 +271,14 @@ export class ProjectsService {
             select: { workspaceId: true },
         });
 
+        if (!project || !project.workspaceId) {
+            throw new NotFoundException('Project workspace not found');
+        }
+
         const workspaceMember = await this.prisma.workspaceMember.findUnique({
             where: {
                 workspaceId_userId: {
-                    workspaceId: project!.workspaceId!,
+                    workspaceId: project.workspaceId,
                     userId: dto.userId,
                 },
             },

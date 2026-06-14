@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import cookieParser from 'cookie-parser'
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,7 +15,7 @@ async function bootstrap() {
     exclude: [{ path: '', method: RequestMethod.GET }],
   });
 
-    // Global validation pipe — whitelist strips unknown properties
+  // Global validation pipe — whitelist strips unknown properties
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

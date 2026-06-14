@@ -8,6 +8,7 @@ import { UsersModule } from './modules/users/users.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { TasksModule } from './modules/tasks/tasks.module';
+import { DeploymentsModule } from './modules/deployments/deployments.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { TasksModule } from './modules/tasks/tasks.module';
     ProjectsModule,
     TasksModule,
     TelegramModule,
+    DeploymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

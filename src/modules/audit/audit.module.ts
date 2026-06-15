@@ -6,9 +6,9 @@ import { PrismaModule } from '../prisma/prisma.module';
 
 @Global() // Make audit service available globally
 @Module({
-    imports: [PrismaModule],
-    controllers: [AuditController],
-    providers: [AuditService, AuditInterceptor],
-    exports: [AuditService, AuditInterceptor],
+  imports: [PrismaModule],
+  controllers: [AuditController],
+  providers: [AuditService, AuditInterceptor],
+  exports: [AuditService, AuditInterceptor],
 })
 export class AuditModule {}

@@ -44,7 +44,7 @@ services:
     ports:
       - "3001:3000"
     env_file:
-      - .env.docker
+      - .env.local
     environment:  # Tambahkan environment langsung sebagai backup
       - DATABASE_URL=postgresql://postgres:123@dev-db:5432/opsflow?schema=public
       - JWT_SECRET=your-super-secret-key-change-this

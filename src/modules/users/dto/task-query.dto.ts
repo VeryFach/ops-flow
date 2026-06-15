@@ -1,4 +1,4 @@
 export class TaskQueryDto {
-    status?: string;
-    priority?: string;
+  status?: string;
+  priority?: string;
 }

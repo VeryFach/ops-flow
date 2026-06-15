@@ -34,13 +34,13 @@ import { JobsModule } from './jobs/jobs.module';
   providers: [
     AppService,
     {
-            provide: APP_FILTER,
-            useClass: HttpExceptionFilter,
-        },
-        {
-            provide: APP_FILTER,
-            useClass: PrismaExceptionFilter,
-        },
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: PrismaExceptionFilter,
+    },
   ],
 })
 export class AppModule {}

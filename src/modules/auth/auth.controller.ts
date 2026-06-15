@@ -7,8 +7,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
-import { AuthService } from './auth.service.js';
-import { RegisterDto, LoginDto } from './dto/auth.dto.js';
+import { AuthService } from './auth.service';
+import { RegisterDto, LoginDto } from './dto/auth.dto';
 import type { Response, CookieOptions } from 'express';
 
 /** Opsi default untuk cookie autentikasi */

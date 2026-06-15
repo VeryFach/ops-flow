@@ -16,7 +16,7 @@ import {
 import { UsersService } from './users.service';
 import { JwtGuard } from '../../common/guards/jwt.guard';
 import { GetUser } from '../../common/decorators/get-user.decorator';
-import { EditUserDto } from './dto/edit-user.dto.js';
+import { EditUserDto } from './dto/edit-user.dto';
 import { TaskQueryDto } from './dto/task-query.dto';
 
 @ApiTags('users')

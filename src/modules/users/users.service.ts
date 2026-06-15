@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service.js';
-import { EditUserDto } from './dto/edit-user.dto.js';
-import { TaskQueryDto } from './dto/task-query.dto.js';
+import { PrismaService } from '../prisma/prisma.service';
+import { EditUserDto } from './dto/edit-user.dto';
+import { TaskQueryDto } from './dto/task-query.dto';
 import { Prisma, TaskStatus } from '@prisma/client';
 
 @Injectable()

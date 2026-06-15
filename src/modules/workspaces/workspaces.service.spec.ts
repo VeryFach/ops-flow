@@ -6,7 +6,7 @@ import { WorkspaceMemberRole } from '@prisma/client';
 
 describe('WorkspacesService', () => {
   let service: WorkspacesService;
-  let prisma: PrismaService;
+  let prisma: jest.Mocked<PrismaService>;
 
   const mockUserId = 'user-1';
   const mockWorkspaceId = 'workspace-1';
@@ -20,6 +20,8 @@ describe('WorkspacesService', () => {
     updatedAt: new Date(),
     deletedAt: null,
   };
+
+  type MockWorkspace = typeof mockWorkspace;
 
   const mockMember = {
     workspaceId: mockWorkspaceId,
@@ -36,14 +38,14 @@ describe('WorkspacesService', () => {
           provide: PrismaService,
           useValue: {
             workspace: {
-              create: jest.fn(),
-              findMany: jest.fn(),
-              findUnique: jest.fn(),
-              findFirst: jest.fn(),
-              update: jest.fn(),
+              create: jest.fn<Promise<typeof mockWorkspace>, []>(),
+              findMany: jest.fn<Promise<MockWorkspace[]>, []>(),
+              findUnique: jest.fn<Promise<typeof mockWorkspace | null>, []>(),
+              findFirst: jest.fn<Promise<typeof mockWorkspace | null>, []>(),
+              update: jest.fn<Promise<typeof mockWorkspace>, []>(),
             },
             workspaceMember: {
-              create: jest.fn(),
+              create: jest.fn<Promise<typeof mockMember>, []>(),
               findUnique: jest.fn(),
               findFirst: jest.fn(),
               delete: jest.fn(),
@@ -62,7 +64,7 @@ describe('WorkspacesService', () => {
     }).compile();
 
     service = module.get<WorkspacesService>(WorkspacesService);
-    prisma = module.get<PrismaService>(PrismaService);
+    prisma = module.get<jest.Mocked<PrismaService>>(PrismaService);
   });
 
   describe('create', () => {
@@ -75,7 +77,14 @@ describe('WorkspacesService', () => {
       (prisma.workspace.findUnique as jest.Mock).mockResolvedValue(null);
       (prisma.$transaction as jest.Mock).mockImplementation(
         (
-          callback: (tx: Record<string, Record<string, jest.Mock>>) => unknown,
+          callback: (tx: {
+            workspace: {
+              create: jest.Mock;
+            };
+            workspaceMember: {
+              create: jest.Mock;
+            };
+          }) => Promise<unknown>,
         ) => {
           return callback({
             workspace: {
@@ -107,20 +116,22 @@ describe('WorkspacesService', () => {
   describe('findAll', () => {
     it('should return all workspaces for a user', async () => {
       const mockWorkspaces = [mockWorkspace];
-      (prisma.workspace.findMany as jest.Mock).mockResolvedValue(
-        mockWorkspaces,
-      );
+
+      const findManySpy = jest.spyOn(prisma.workspace, 'findMany');
+
+      findManySpy.mockResolvedValue(mockWorkspaces);
 
       const result = await service.findAll(mockUserId);
 
       expect(result).toEqual(mockWorkspaces);
-      expect(prisma.workspace.findMany).toHaveBeenCalledWith({
+
+      expect(findManySpy).toHaveBeenCalledWith({
         where: {
           members: {
             some: { userId: mockUserId },
           },
         },
-        include: expect.any(Object),
+        include: expect.any(Object) as Record<string, unknown>,
         orderBy: { createdAt: 'desc' },
       });
     });
@@ -128,13 +139,13 @@ describe('WorkspacesService', () => {
 
   describe('findOne', () => {
     it('should return a workspace if user has access', async () => {
-      (prisma.workspace.findFirst as jest.Mock).mockResolvedValue(
-        mockWorkspace,
-      );
+      const findFirstSpy = jest.spyOn(prisma.workspace, 'findFirst');
+
+      findFirstSpy.mockResolvedValue(mockWorkspace);
 
       const result = await service.findOne(mockWorkspaceId, mockUserId);
 
-      expect(result).toEqual(mockWorkspace);
+      expect(result).toMatchObject(mockWorkspace);
     });
 
     it('should throw NotFoundException if workspace not found', async () => {

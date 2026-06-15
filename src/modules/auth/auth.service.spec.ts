@@ -84,16 +84,15 @@ describe('AuthService', () => {
       const result = await service.register(registerDto);
 
       expect(result).toEqual(mockToken);
-      expect(prisma.user.create).toHaveBeenCalledWith(
-        {
-          data: {
-            email: registerDto.email,
-            name: registerDto.name,
-            password: 'hashedPassword',
-            role: UserRole.USER,
-          },
+      const createSpy = jest.spyOn(prisma.user, 'create');
+      expect(createSpy).toHaveBeenCalledWith({
+        data: {
+          email: registerDto.email,
+          name: registerDto.name,
+          password: 'hashedPassword',
+          role: UserRole.USER,
         },
-      );
+      });
     });
 
     it('should throw ForbiddenException if email already exists', async () => {
@@ -120,8 +119,8 @@ describe('AuthService', () => {
       const result = await service.login(loginDto);
 
       expect(result).toEqual(mockToken);
-      expect
-        (prisma.user.findUnique).toHaveBeenCalledWith({
+      const findUniqueSpy = jest.spyOn(prisma.user, 'findUnique');
+      expect(findUniqueSpy).toHaveBeenCalledWith({
         where: { email: loginDto.email },
       });
     });
@@ -149,7 +148,8 @@ describe('AuthService', () => {
       );
 
       expect(result).toEqual(mockToken);
-      expect(jwt.signAsync).toHaveBeenCalledWith(
+      const signSpy = jest.spyOn(jwt, 'signAsync');
+      expect(signSpy).toHaveBeenCalledWith(
         {
           sub: mockUser.id,
           email: mockUser.email,

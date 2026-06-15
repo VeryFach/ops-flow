@@ -75,20 +75,24 @@ describe('TasksService', () => {
     };
 
     it('should create a task successfully', async () => {
+      const createSpy = jest.spyOn(prisma.task, 'create');
+      const createManySpy = jest.spyOn(prisma.taskAssignee, 'createMany');
+
       (prisma.projectMember.findUnique as jest.Mock).mockResolvedValue(
         mockProjectMember,
       );
-      (prisma.task.create as jest.Mock).mockResolvedValue(mockTask);
-      (prisma.taskAssignee.createMany as jest.Mock).mockResolvedValue({
-        count: 2,
-      });
+
+      createSpy.mockResolvedValue(mockTask);
+      createManySpy.mockResolvedValue({ count: 2 });
+
       (prisma.task.findFirst as jest.Mock).mockResolvedValue(mockTask);
 
       const result = await service.create(mockUserId, createDto);
 
       expect(result).toEqual(mockTask);
-      expect(prisma.task.create).toHaveBeenCalled();
-      expect(prisma.taskAssignee.createMany).toHaveBeenCalled();});
+      expect(createSpy).toHaveBeenCalled();
+      expect(createManySpy).toHaveBeenCalled();
+    });
 
     it('should throw ForbiddenException if user has no access to project', async () => {
       (prisma.projectMember.findUnique as jest.Mock).mockResolvedValue(null);
@@ -119,13 +123,30 @@ describe('TasksService', () => {
 
   describe('updateStatus', () => {
     it('should update task status and create history', async () => {
-      const oldTask = { ...mockTask, status: TaskStatus.TODO };
-      const updatedTask = { ...mockTask, status: TaskStatus.IN_PROGRESS };
+      const historySpy = jest.spyOn(prisma.taskStatusHistory, 'create');
+
+      const oldTask = {
+        ...mockTask,
+        status: TaskStatus.TODO,
+      };
+
+      const updatedTask = {
+        ...mockTask,
+        status: TaskStatus.IN_PROGRESS,
+      };
 
       (prisma.task.findFirst as jest.Mock).mockResolvedValue(oldTask);
       (prisma.task.findUnique as jest.Mock).mockResolvedValue(oldTask);
       (prisma.task.update as jest.Mock).mockResolvedValue(updatedTask);
-      (prisma.taskStatusHistory.create as jest.Mock).mockResolvedValue({});
+
+      historySpy.mockResolvedValue({
+        id: 'history-1',
+        taskId: mockTaskId,
+        changedById: mockUserId,
+        fromStatus: TaskStatus.TODO,
+        toStatus: TaskStatus.IN_PROGRESS,
+        changedAt: new Date(),
+      });
 
       const result = await service.updateStatus(
         mockTaskId,
@@ -134,7 +155,8 @@ describe('TasksService', () => {
       );
 
       expect(result).toEqual(updatedTask);
-      expect(prisma.taskStatusHistory.create).toHaveBeenCalledWith({
+
+      expect(historySpy).toHaveBeenCalledWith({
         data: {
           taskId: mockTaskId,
           changedById: mockUserId,

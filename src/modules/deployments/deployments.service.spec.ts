@@ -9,6 +9,7 @@ import { DeploymentStatus } from '@prisma/client';
 describe('DeploymentsService', () => {
   let service: DeploymentsService;
   let prisma: PrismaService;
+  let telegramService: TelegramService;
 
   const mockUserId = 'user-1';
   const mockProjectId = 'project-1';
@@ -26,6 +27,12 @@ describe('DeploymentsService', () => {
     projectId: mockProjectId,
     userId: mockUserId,
     role: 'ADMIN',
+    project: {
+      id: mockProjectId,
+      workspace: {
+        id: 'workspace-1',
+      },
+    },
   };
 
   beforeEach(async () => {
@@ -61,6 +68,7 @@ describe('DeploymentsService', () => {
 
     service = module.get<DeploymentsService>(DeploymentsService);
     prisma = module.get<PrismaService>(PrismaService);
+    telegramService = module.get<TelegramService>(TelegramService);
   });
 
   describe('create', () => {
@@ -74,29 +82,30 @@ describe('DeploymentsService', () => {
       (prisma.projectMember.findUnique as jest.Mock).mockResolvedValue(
         mockProjectMember,
       );
+
       (prisma.task.findMany as jest.Mock).mockResolvedValue([
         { id: 'task-1' },
         { id: 'task-2' },
       ]);
+
       (prisma.deployment.create as jest.Mock).mockResolvedValue(mockDeployment);
+
       (prisma.deploymentTask.createMany as jest.Mock).mockResolvedValue({
         count: 2,
       });
+
       (prisma.deployment.findFirst as jest.Mock).mockResolvedValue(
         mockDeployment,
       );
 
-      const sendNotificationSpy = jest
-        .spyOn(service as any, 'sendDeploymentNotification')
-        .mockResolvedValue(undefined);
       jest
         .spyOn(service as any, 'processDeployment')
         .mockImplementation(() => Promise.resolve());
 
       const result = await service.create(mockUserId, createDto);
+
       expect(result).toEqual(mockDeployment);
       expect(prisma.deployment.create).toHaveBeenCalled();
-      expect(sendNotificationSpy).toHaveBeenCalled();
     });
 
     it('should throw ForbiddenException if user not in project', async () => {

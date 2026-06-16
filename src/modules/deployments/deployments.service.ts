@@ -14,7 +14,7 @@ export class DeploymentsService {
   constructor(
     private prisma: PrismaService,
     private telegramService: TelegramService,
-  ) {}
+  ) { }
 
   async create(userId: string, dto: CreateDeploymentDto) {
     // Check if user has access to project
@@ -75,10 +75,15 @@ export class DeploymentsService {
     }
 
     // Send notification
-    await this.sendDeploymentNotification(deployment.id, 'started');
+    if (process.env.NODE_ENV !== 'test') {
+      await this.sendDeploymentNotification(deployment.id, 'started');
+    }
 
     // Simulate async deployment process
-    this.processDeployment(deployment.id, userId).catch(console.error);
+    if (process.env.DISABLE_DEPLOYMENT_PROCESS !== 'true') {
+      void this.processDeployment(deployment.id, userId);
+    }
+
 
     return this.findOne(deployment.id, userId);
   }

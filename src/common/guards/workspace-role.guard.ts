@@ -29,7 +29,7 @@ export class WorkspaceRoleGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = request.user;
-    const bodyWorkspaceId = request.body.workspaceId;
+    const bodyWorkspaceId = request.body?.workspaceId;
     const workspaceId =
       request.params.workspaceId ||
       (typeof bodyWorkspaceId === 'string' ? bodyWorkspaceId : undefined);

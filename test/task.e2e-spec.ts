@@ -12,6 +12,7 @@ describe('Task E2E', () => {
   let prisma: PrismaService;
   let agent: ReturnType<typeof request.agent>;
   let projectId: string;
+  let tokenB: string;
   let server: Server;
   let testData: ReturnType<typeof createTestData>;
 
@@ -60,6 +61,19 @@ describe('Task E2E', () => {
       .send({ email: testData.email, password: 'pass123' })
       .expect(200);
 
+    const emailB = `other-${testData.id}@e2e.com`;
+    const regB = await agent
+      .post('/auth/register')
+      .send({ email: emailB, password: 'pass123', name: 'Other' })
+      .expect(201);
+    tokenB = (regB.body as { access_token: string }).access_token;
+
+    // Re-login as User A so agent cookie is set to User A
+    await agent
+      .post('/auth/login')
+      .send({ email: testData.email, password: 'pass123' })
+      .expect(200);
+
     const wsRes = await agent
       .post('/workspaces')
       .send({ name: testData.workspaceName, slug: testData.workspaceSlug })
@@ -96,5 +110,43 @@ describe('Task E2E', () => {
       .send({ status: 'IN_PROGRESS' })
       .expect(200);
     expect((updateRes.body as { status: string }).status).toBe('IN_PROGRESS');
+  });
+
+  describe('RBAC enforcement', () => {
+    it('should deny task status update by user without required role (403)', async () => {
+      const createRes = await agent
+        .post('/tasks')
+        .send({ title: testData.taskTitle, projectId })
+        .expect(201);
+      const taskId = (createRes.body as { id: string }).id;
+
+      await request(server)
+        .patch(`/tasks/${taskId}/status`)
+        .set('Authorization', `Bearer ${tokenB}`)
+        .send({ status: 'IN_PROGRESS' })
+        .expect(403);
+    });
+  });
+
+  describe('Data integrity', () => {
+    it('should soft-delete task and verify deletedAt is set', async () => {
+      const createRes = await agent
+        .post('/tasks')
+        .send({ title: testData.taskTitle, projectId })
+        .expect(201);
+      const taskId = (createRes.body as { id: string }).id;
+
+      const deleteRes = await agent.delete(`/tasks/${taskId}`).expect(200);
+      expect((deleteRes.body as { message: string }).message).toBe(
+        'Task deleted successfully',
+      );
+
+      // Verify soft delete via Prisma
+      const dbTask = await prisma.task.findUnique({
+        where: { id: taskId },
+      });
+      expect(dbTask).not.toBeNull();
+      expect(dbTask!.deletedAt).not.toBeNull();
+    });
   });
 });

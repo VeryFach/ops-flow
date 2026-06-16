@@ -37,6 +37,7 @@ describe('Auth E2E', () => {
   beforeEach(async () => {
     testData = createTestData();
 
+    await prisma.auditLog.deleteMany();
     await prisma.deploymentTask.deleteMany();
     await prisma.deployment.deleteMany();
     await prisma.taskStatusHistory.deleteMany();
@@ -98,5 +99,27 @@ describe('Auth E2E', () => {
       'Logged out successfully',
     );
     expect(logoutRes.headers['set-cookie'][0]).toMatch(/cookie_token=;/);
+  });
+
+  describe('Security', () => {
+    it('should return 401 for unauthenticated access to protected endpoint', async () => {
+      await request(server).get('/workspaces').expect(401);
+    });
+
+    it('should return 401 for protected endpoint access after logout', async () => {
+      await agent.post('/auth/register').send({
+        email: testData.email,
+        password: getPassword(),
+        name: 'E2E User',
+      });
+      await agent
+        .post('/auth/login')
+        .send({ email: testData.email, password: getPassword() })
+        .expect(200);
+
+      await agent.post('/auth/logout').expect(200);
+
+      await request(server).get('/workspaces').expect(401);
+    });
   });
 });

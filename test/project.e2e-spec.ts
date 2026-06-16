@@ -6,6 +6,7 @@ import type { Server } from 'http';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/modules/prisma/prisma.service';
 import { createTestData } from './helpers/test-data';
+import { cleanupDatabase } from './helpers/cleanup-db';
 
 describe('Project E2E', () => {
   let app: INestApplication;
@@ -38,18 +39,7 @@ describe('Project E2E', () => {
   beforeEach(async () => {
     testData = createTestData();
 
-    await prisma.deploymentTask.deleteMany();
-    await prisma.deployment.deleteMany();
-    await prisma.taskStatusHistory.deleteMany();
-    await prisma.taskAssignee.deleteMany();
-    await prisma.task.deleteMany();
-    await prisma.projectMember.deleteMany();
-    await prisma.project.deleteMany();
-    await prisma.workspaceMember.deleteMany();
-    await prisma.workspace.deleteMany();
-    await prisma.user.deleteMany({
-      where: { email: { endsWith: '@e2e.com' } },
-    });
+    await cleanupDatabase(prisma);
 
     await agent
       .post('/auth/register')
@@ -87,5 +77,33 @@ describe('Project E2E', () => {
     const response = await agent.get('/projects').expect(200);
     expect(Array.isArray(response.body)).toBe(true);
     expect((response.body as unknown[]).length).toBeGreaterThan(0);
+  });
+
+  describe('Data integrity', () => {
+    it('should update project and persist change', async () => {
+      const projRes = await agent
+        .post('/projects')
+        .send({
+          name: testData.projectName,
+          description: 'Test project',
+          workspaceId,
+        })
+        .expect(201);
+      const projectId = (projRes.body as { id: string }).id;
+
+      const newName = 'Updated Project Name';
+      const updateRes = await agent
+        .patch(`/projects/${projectId}`)
+        .send({ name: newName })
+        .expect(200);
+      expect((updateRes.body as { name: string }).name).toBe(newName);
+
+      // Verify persistence via Prisma
+      const dbProject = await prisma.project.findUnique({
+        where: { id: projectId },
+      });
+      expect(dbProject).not.toBeNull();
+      expect(dbProject!.name).toBe(newName);
+    });
   });
 });

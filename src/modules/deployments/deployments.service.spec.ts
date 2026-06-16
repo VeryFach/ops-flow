@@ -9,7 +9,6 @@ import { DeploymentStatus } from '@prisma/client';
 describe('DeploymentsService', () => {
   let service: DeploymentsService;
   let prisma: PrismaService;
-  let telegramService: TelegramService;
 
   const mockUserId = 'user-1';
   const mockProjectId = 'project-1';
@@ -68,7 +67,6 @@ describe('DeploymentsService', () => {
 
     service = module.get<DeploymentsService>(DeploymentsService);
     prisma = module.get<PrismaService>(PrismaService);
-    telegramService = module.get<TelegramService>(TelegramService);
   });
 
   describe('create', () => {

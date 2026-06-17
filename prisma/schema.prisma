@@ -64,11 +64,11 @@ model AuditLog {
   oldValue    Json?       @map("old_value")
   newValue    Json?       @map("new_value")
   createdAt   DateTime    @default(now()) @map("created_at")
-  workspaceId String      @map("workspace_id")
+  workspaceId String?     @map("workspace_id")
   ipAddress   String?     @map("ip_address")
   userAgent   String?     @map("user_agent")
   user        User?       @relation(fields: [userId], references: [id])
-  workspace   Workspace   @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
   @@index([entity, entityId])
   @@map("audit_logs")

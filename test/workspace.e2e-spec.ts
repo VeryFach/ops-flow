@@ -7,6 +7,7 @@ import { WorkspaceMemberRole } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/modules/prisma/prisma.service';
 import { createTestData } from './helpers/test-data';
+import { cleanupDatabase } from './helpers/cleanup-db';
 
 describe('Workspace E2E', () => {
   let app: INestApplication;
@@ -39,18 +40,7 @@ describe('Workspace E2E', () => {
   beforeEach(async () => {
     testData = createTestData();
 
-    await prisma.deploymentTask.deleteMany();
-    await prisma.deployment.deleteMany();
-    await prisma.taskStatusHistory.deleteMany();
-    await prisma.taskAssignee.deleteMany();
-    await prisma.task.deleteMany();
-    await prisma.projectMember.deleteMany();
-    await prisma.project.deleteMany();
-    await prisma.workspaceMember.deleteMany();
-    await prisma.workspace.deleteMany();
-    await prisma.user.deleteMany({
-      where: { email: { endsWith: '@e2e.com' } },
-    });
+    await cleanupDatabase(prisma);
 
     await agent
       .post('/auth/register')

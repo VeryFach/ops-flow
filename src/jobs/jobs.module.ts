@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
-import { TelegramService } from '../modules/notifications/telegram.service';
+import { DeploymentQueue } from './deployment.queue';
+import { TelegramModule } from '../modules/notifications/telegram.module';
 
 @Module({
-  providers: [TelegramService],
-  exports: [TelegramService],
+  imports: [TelegramModule],
+  providers: [DeploymentQueue],
+  exports: [DeploymentQueue],
 })
 export class JobsModule {}

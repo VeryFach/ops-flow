@@ -21,17 +21,17 @@ Project ini dibuat sebagai simulasi workflow operasional yang umum digunakan ole
 
 ## Technology Stack
 
-| Technology | Description |
-|------------|-------------|
-| NestJS | Backend Framework |
-| TypeScript | Programming Language |
-| PostgreSQL | Relational Database |
-| Prisma ORM | ORM & Database Migration |
-| Swagger | API Documentation |
-| JWT | Authentication |
-| Telegram Bot API | Deployment Notification |
-| Jest | Unit & E2E Testing |
-| Docker | Containerization |
+| Technology       | Description              |
+| ---------------- | ------------------------ |
+| NestJS           | Backend Framework        |
+| TypeScript       | Programming Language     |
+| PostgreSQL       | Relational Database      |
+| Prisma ORM       | ORM & Database Migration |
+| Swagger          | API Documentation        |
+| JWT              | Authentication           |
+| Telegram Bot API | Deployment Notification  |
+| Jest             | Unit & E2E Testing       |
+| Docker           | Containerization         |
 
 ---
 
@@ -60,7 +60,7 @@ src/
 │   ├── guards/
 │   ├── interceptors/
 │   ├── filters/
-│   ├── enums/
+│   ├── interface/
 │   └── constants/
 │
 ├── config/
@@ -235,11 +235,12 @@ Represents a system user.
 
 Responsibilities:
 
-* Authenticate using JWT
-* Create and manage projects
-* Be assigned to tasks
-* Execute deployments
-* Participate in workspaces
+- Authenticate using JWT
+- Create and manage projects
+- Be assigned to tasks
+- Execute deployments
+- Participate in workspaces
+
 ---
 
 ### Workspace
@@ -248,9 +249,9 @@ Represents an isolated working environment for a team or organization.
 
 Responsibilities:
 
-* Organize projects
-* Manage members
-* Control access boundaries
+- Organize projects
+- Manage members
+- Control access boundaries
 
 Relationship:
 
@@ -274,8 +275,9 @@ MEMBER
 
 Responsibilities:
 
-* Control permissions inside a workspace
-* Define ownership and collaboration
+- Control permissions inside a workspace
+- Define ownership and collaboration
+
 ---
 
 ### Project
@@ -284,9 +286,9 @@ Represents a collection of tasks managed by a team.
 
 Responsibilities:
 
-* Store project information
-* Group related tasks
-* Organize deployment activities
+- Store project information
+- Group related tasks
+- Organize deployment activities
 
 Relationship:
 
@@ -302,9 +304,9 @@ Represents work items within a project.
 
 Responsibilities:
 
-* Track engineering work
-* Assign ownership
-* Monitor progress
+- Track engineering work
+- Assign ownership
+- Monitor progress
 
 Status:
 
@@ -336,9 +338,9 @@ Represents deployment activities performed on a task.
 
 Responsibilities:
 
-* Track deployment history
-* Record deployment status
-* Trigger notifications
+- Track deployment history
+- Record deployment status
+- Trigger notifications
 
 Status:
 
@@ -357,10 +359,10 @@ Stores system activity records.
 
 Responsibilities:
 
-* Record create events
-* Record update events
-* Record delete events
-* Provide traceability and accountability
+- Record create events
+- Record update events
+- Record delete events
+- Provide traceability and accountability
 
 Example:
 
@@ -372,7 +374,6 @@ Example:
   "oldValue": {},
   "newValue": {}
 }
-
 ```
 
 ---
@@ -387,56 +388,56 @@ Example:
 
 Responsible for:
 
-* Login
-* JWT token generation
-* Role validation
-* Route protection
+- Login
+- JWT token generation
+- Role validation
+- Route protection
 
 #### Workspace Module
 
 Responsible for:
 
-* Workspace management
-* Membership management
-* Access isolation
+- Workspace management
+- Membership management
+- Access isolation
 
 #### Project Manager
 
 Responsible for:
 
-* Project CRUD operations
-* Project ownership validation
+- Project CRUD operations
+- Project ownership validation
 
 #### Task Manager
 
 Responsible for:
 
-* Task CRUD operations
-* Task assignment
-* Task status management
+- Task CRUD operations
+- Task assignment
+- Task status management
 
 #### Deployment Manager
 
 Responsible for:
 
-* Deployment lifecycle management
-* Deployment history tracking
-* Deployment status updates
+- Deployment lifecycle management
+- Deployment history tracking
+- Deployment status updates
 
 #### Audit Service
 
 Responsible for:
 
-* Capturing data changes
-* Persisting audit records
-* Supporting compliance and traceability
+- Capturing data changes
+- Persisting audit records
+- Supporting compliance and traceability
 
 #### Notification Service
 
 Responsible for:
 
-* Sending deployment notifications
-* Telegram Bot integration
+- Sending deployment notifications
+- Telegram Bot integration
 
 #### PostgreSQL Database
 

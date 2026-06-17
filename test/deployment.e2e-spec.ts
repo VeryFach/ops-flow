@@ -51,7 +51,9 @@ describe('Deployment E2E', () => {
     await prisma.project.deleteMany();
     await prisma.workspaceMember.deleteMany();
     await prisma.workspace.deleteMany();
-    await prisma.user.deleteMany({ where: { email: { endsWith: '@e2e.com' } } });
+    await prisma.user.deleteMany({
+      where: { email: { endsWith: '@e2e.com' } },
+    });
 
     // Register and login
     await agent
@@ -98,7 +100,9 @@ describe('Deployment E2E', () => {
 
     expect(response.body).toHaveProperty('id');
     expect((response.body as { version: string }).version).toBe('v1.0.0');
-    expect((response.body as { status: string }).status).toBe(DeploymentStatus.PENDING);
+    expect((response.body as { status: string }).status).toBe(
+      DeploymentStatus.PENDING,
+    );
   });
 
   it('should get deployment by id', async () => {
@@ -108,9 +112,7 @@ describe('Deployment E2E', () => {
       .expect(201);
     const deploymentId = (createRes.body as { id: string }).id;
 
-    const getRes = await agent
-      .get(`/deployments/${deploymentId}`)
-      .expect(200);
+    const getRes = await agent.get(`/deployments/${deploymentId}`).expect(200);
     expect((getRes.body as { id: string }).id).toBe(deploymentId);
   });
 
@@ -141,7 +143,9 @@ describe('Deployment E2E', () => {
       .send({ status: DeploymentStatus.RUNNING })
       .expect(200);
 
-    expect((updateRes.body as { status: string }).status).toBe(DeploymentStatus.RUNNING);
+    expect((updateRes.body as { status: string }).status).toBe(
+      DeploymentStatus.RUNNING,
+    );
   });
 
   it('should delete deployment', async () => {
@@ -155,7 +159,9 @@ describe('Deployment E2E', () => {
       .delete(`/deployments/${deploymentId}`)
       .expect(200);
 
-    expect((deleteRes.body as { message: string }).message).toBe('Deployment deleted successfully');
+    expect((deleteRes.body as { message: string }).message).toBe(
+      'Deployment deleted successfully',
+    );
 
     // Verify deployment is removed from DB
     const dbDeployment = await prisma.deployment.findUnique({

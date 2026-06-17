@@ -54,16 +54,22 @@ describe('Audit E2E', () => {
       where: { email: { endsWith: '@e2e.com' } },
     });
 
-    await agent.post('/auth/register').send({
-      email: testData.email,
-      password: 'pass123',
-      name: 'Owner',
-    }).expect(201);
+    await agent
+      .post('/auth/register')
+      .send({
+        email: testData.email,
+        password: 'pass123',
+        name: 'Owner',
+      })
+      .expect(201);
 
-    await agent.post('/auth/login').send({
-      email: testData.email,
-      password: 'pass123',
-    }).expect(200);
+    await agent
+      .post('/auth/login')
+      .send({
+        email: testData.email,
+        password: 'pass123',
+      })
+      .expect(200);
 
     const userRes = await agent.get('/users/me').expect(200);
     userId = (userRes.body as { id: string }).id;
@@ -111,9 +117,7 @@ describe('Audit E2E', () => {
     expect(Array.isArray((response.body as { data: unknown[] }).data)).toBe(
       true,
     );
-    expect(
-      ((response.body as { data: unknown[] }).data as unknown[]).length,
-    ).toBe(2);
+    expect((response.body as { data: unknown[] }).data.length).toBe(2);
 
     const meta = (response.body as { meta: { total: number } }).meta;
     expect(meta.total).toBe(2);

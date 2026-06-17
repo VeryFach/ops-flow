@@ -5,7 +5,7 @@ import { PrismaService } from '../modules/prisma/prisma.service';
 import { TelegramService } from '../modules/notifications/telegram.service';
 import { DeploymentStatus } from '@prisma/client';
 
-interface DeploymentJobData {
+export interface DeploymentJobData {
   deploymentId: string;
   userId: string;
   version: string;
@@ -15,33 +15,30 @@ interface DeploymentJobData {
 
 @Injectable()
 export class DeploymentQueue implements OnModuleInit {
-  private queue: Queue<DeploymentJobData>;
-  private worker!: Worker<DeploymentJobData>;
+  private queue: Queue<DeploymentJobData> | null = null;
+  private worker: Worker<DeploymentJobData> | null = null;
 
   constructor(
     private prisma: PrismaService,
     private telegram: TelegramService,
-  ) {
-    this.queue = new Queue('deployments', {
-      connection: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379', 10),
-      },
-    });
-  }
+  ) {}
 
   onModuleInit() {
-    this.worker = new Worker(
+    if (process.env.NODE_ENV === 'test') return;
+
+    const connection = {
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    };
+
+    this.queue = new Queue<DeploymentJobData>('deployments', { connection });
+
+    this.worker = new Worker<DeploymentJobData>(
       'deployments',
       async (job: Job<DeploymentJobData>) => {
         return this.processDeployment(job.data);
       },
-      {
-        connection: {
-          host: process.env.REDIS_HOST || 'localhost',
-          port: parseInt(process.env.REDIS_PORT || '6379', 10),
-        },
-      },
+      { connection },
     );
 
     this.worker.on('completed', (job) => {
@@ -54,14 +51,27 @@ export class DeploymentQueue implements OnModuleInit {
   }
 
   async addDeployment(data: DeploymentJobData): Promise<string> {
+    if (!this.queue) return '';
     const job = await this.queue.add('deploy', data, {
       attempts: 3,
-      backoff: {
-        type: 'exponential',
-        delay: 5000,
-      },
+      backoff: { type: 'exponential', delay: 5000 },
     });
     return job.id ?? '';
+  }
+
+  async getJobStatus(jobId: string) {
+    if (!this.queue) return null;
+    const job = await this.queue.getJob(jobId);
+    if (!job) return null;
+
+    const state = await job.getState();
+    return {
+      id: job.id,
+      state,
+      progress: job.progress,
+      returnvalue: job.returnvalue as unknown,
+      failedReason: job.failedReason,
+    };
   }
 
   private async processDeployment(data: DeploymentJobData) {
@@ -75,10 +85,10 @@ export class DeploymentQueue implements OnModuleInit {
       });
 
       // Simulate build process
-      await this.delay(5000);
+      await this.delay(2000);
 
       // Simulate deployment process
-      await this.delay(5000);
+      await this.delay(3000);
 
       // Update status to SUCCESS
       await this.prisma.deployment.update({
@@ -86,7 +96,7 @@ export class DeploymentQueue implements OnModuleInit {
         data: { status: DeploymentStatus.SUCCESS },
       });
 
-      // Update task statuses
+      // Update linked task statuses to DONE
       if (taskIds && taskIds.length > 0) {
         await this.prisma.task.updateMany({
           where: { id: { in: taskIds } },
@@ -102,17 +112,25 @@ export class DeploymentQueue implements OnModuleInit {
       return { success: true, deploymentId };
     } catch (error) {
       // Update status to FAILED
-      await this.prisma.deployment.update({
-        where: { id: deploymentId },
-        data: { status: DeploymentStatus.FAILED },
-      });
+      await this.prisma.deployment
+        .update({
+          where: { id: deploymentId },
+          data: { status: DeploymentStatus.FAILED },
+        })
+        .catch((e: unknown) => {
+          console.error('Failed to update deployment to FAILED:', e);
+        });
 
       // Send failure notification
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
-      await this.telegram.sendMessage(
-        `❌ Deployment ${version} for project ${projectId} failed: ${errorMessage}`,
-      );
+      await this.telegram
+        .sendMessage(
+          `❌ Deployment ${version} for project ${projectId} failed: ${errorMessage}`,
+        )
+        .catch((e: unknown) => {
+          console.error('Failed to send failure notification:', e);
+        });
 
       throw error;
     }
@@ -120,19 +138,5 @@ export class DeploymentQueue implements OnModuleInit {
 
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  async getJobStatus(jobId: string) {
-    const job = await this.queue.getJob(jobId);
-    if (!job) return null;
-
-    const state = await job.getState();
-    return {
-      id: job.id,
-      state,
-      progress: job.progress,
-      returnvalue: job.returnvalue as unknown,
-      failedReason: job.failedReason,
-    };
   }
 }

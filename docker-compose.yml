@@ -1,4 +1,4 @@
-version: "3.9"
+version: '3.9'
 
 services:
   dev-db:
@@ -6,7 +6,7 @@ services:
     container_name: opsflow-db
     restart: always
     ports:
-      - "5434:5432"
+      - '5434:5432'
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123
@@ -15,8 +15,8 @@ services:
       - ops-flow-db-data:/var/lib/postgresql/data
     networks:
       - ops-flow
-    healthcheck:  # Tambahkan health check
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+    healthcheck: # Tambahkan health check
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,11 +26,11 @@ services:
     container_name: opsflow-redis
     restart: always
     ports:
-      - "6379:6379"
+      - '6379:6379'
     networks:
       - ops-flow
-    healthcheck:  # Health check untuk redis
-      test: ["CMD", "redis-cli", "ping"]
+    healthcheck: # Health check untuk redis
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,21 +42,23 @@ services:
     container_name: opsflow-api
     restart: always
     ports:
-      - "3001:3000"
+      - '3001:3000'
     env_file:
       - .env.local
-    environment:  # Tambahkan environment langsung sebagai backup
+    environment: # Tambahkan environment langsung sebagai backup
       - DATABASE_URL=postgresql://postgres:123@dev-db:5432/opsflow?schema=public
       - JWT_SECRET=your-super-secret-key-change-this
       - JWT_EXPIRES_IN=1d
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     volumes:
       - .:/app
     command: sh -c "npx prisma generate && npx prisma migrate deploy && npm run start:dev"
     depends_on:
       dev-db:
-        condition: service_healthy  # Tunggu DB benar-benar siap
+        condition: service_healthy # Tunggu DB benar-benar siap
       redis:
-        condition: service_healthy  # Tunggu Redis siap
+        condition: service_healthy # Tunggu Redis siap
     networks:
       - ops-flow
 

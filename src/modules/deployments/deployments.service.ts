@@ -8,13 +8,15 @@ import { TelegramService } from '../notifications/telegram.service';
 import { CreateDeploymentDto } from './dto/create-deployment.dto';
 import { UpdateDeploymentStatusDto } from './dto/update-deployment-status.dto';
 import { DeploymentStatus, Prisma } from '@prisma/client';
+import { DeploymentQueue } from '../../jobs/deployment.queue';
 
 @Injectable()
 export class DeploymentsService {
   constructor(
     private prisma: PrismaService,
     private telegramService: TelegramService,
-  ) { }
+    private deploymentQueue: DeploymentQueue,
+  ) {}
 
   async create(userId: string, dto: CreateDeploymentDto) {
     // Check if user has access to project
@@ -79,11 +81,14 @@ export class DeploymentsService {
       await this.sendDeploymentNotification(deployment.id, 'started');
     }
 
-    // Simulate async deployment process
-    if (process.env.DISABLE_DEPLOYMENT_PROCESS !== 'true') {
-      void this.processDeployment(deployment.id, userId);
-    }
-
+    // Enqueue async deployment processing via BullMQ
+    await this.deploymentQueue.addDeployment({
+      deploymentId: deployment.id,
+      userId,
+      version: dto.version,
+      projectId: dto.projectId,
+      taskIds: dto.taskIds ?? [],
+    });
 
     return this.findOne(deployment.id, userId);
   }
@@ -288,20 +293,6 @@ export class DeploymentsService {
     return { message: 'Deployment deleted successfully' };
   }
 
-  // Simulate async deployment process
-  private async processDeployment(deploymentId: string, userId: string) {
-    // Simulate deployment steps
-    await this.delay(2000); // Simulate building
-    await this.updateStatus(deploymentId, userId, {
-      status: DeploymentStatus.RUNNING,
-    });
-
-    await this.delay(3000); // Simulate deployment
-    await this.updateStatus(deploymentId, userId, {
-      status: DeploymentStatus.SUCCESS,
-    });
-  }
-
   private async sendDeploymentNotification(
     deploymentId: string,
     status: string,
@@ -365,9 +356,5 @@ Status: ${statusMap[status] ?? '⚪ Unknown'}
         });
       }
     }
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

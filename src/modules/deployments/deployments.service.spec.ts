@@ -3,12 +3,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DeploymentsService } from './deployments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TelegramService } from '../notifications/telegram.service';
+import { DeploymentQueue } from '../../jobs/deployment.queue';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { DeploymentStatus } from '@prisma/client';
 
 describe('DeploymentsService', () => {
   let service: DeploymentsService;
   let prisma: PrismaService;
+  let deploymentQueue: DeploymentQueue;
 
   const mockUserId = 'user-1';
   const mockProjectId = 'project-1';
@@ -52,7 +54,6 @@ describe('DeploymentsService', () => {
               delete: jest.fn(),
             },
             deploymentTask: { createMany: jest.fn(), findMany: jest.fn() },
-            tasks: { updateMany: jest.fn() },
             workspaceMember: { findFirst: jest.fn() },
           },
         },
@@ -62,11 +63,18 @@ describe('DeploymentsService', () => {
             sendMessage: jest.fn().mockResolvedValue({ ok: true }),
           },
         },
+        {
+          provide: DeploymentQueue,
+          useValue: {
+            addDeployment: jest.fn().mockResolvedValue('job-1'),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<DeploymentsService>(DeploymentsService);
     prisma = module.get<PrismaService>(PrismaService);
+    deploymentQueue = module.get<DeploymentQueue>(DeploymentQueue);
   });
 
   describe('create', () => {
@@ -76,7 +84,7 @@ describe('DeploymentsService', () => {
       taskIds: ['task-1', 'task-2'],
     };
 
-    it('should create a deployment successfully', async () => {
+    it('should create a deployment and enqueue job', async () => {
       (prisma.projectMember.findUnique as jest.Mock).mockResolvedValue(
         mockProjectMember,
       );
@@ -96,14 +104,39 @@ describe('DeploymentsService', () => {
         mockDeployment,
       );
 
-      jest
-        .spyOn(service as any, 'processDeployment')
-        .mockImplementation(() => Promise.resolve());
-
       const result = await service.create(mockUserId, createDto);
 
       expect(result).toEqual(mockDeployment);
       expect(prisma.deployment.create).toHaveBeenCalled();
+      expect(deploymentQueue.addDeployment).toHaveBeenCalledWith({
+        deploymentId: mockDeploymentId,
+        userId: mockUserId,
+        version: 'v1.0.0',
+        projectId: mockProjectId,
+        taskIds: ['task-1', 'task-2'],
+      });
+    });
+
+    it('should enqueue with empty taskIds when none provided', async () => {
+      const dtoNoTasks = { version: 'v1.0.0', projectId: mockProjectId };
+
+      (prisma.projectMember.findUnique as jest.Mock).mockResolvedValue(
+        mockProjectMember,
+      );
+      (prisma.deployment.create as jest.Mock).mockResolvedValue(mockDeployment);
+      (prisma.deployment.findFirst as jest.Mock).mockResolvedValue(
+        mockDeployment,
+      );
+
+      await service.create(mockUserId, dtoNoTasks);
+
+      expect(deploymentQueue.addDeployment).toHaveBeenCalledWith({
+        deploymentId: mockDeploymentId,
+        userId: mockUserId,
+        version: 'v1.0.0',
+        projectId: mockProjectId,
+        taskIds: [],
+      });
     });
 
     it('should throw ForbiddenException if user not in project', async () => {

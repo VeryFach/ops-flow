@@ -29,9 +29,11 @@ Project ini dibuat sebagai simulasi workflow operasional yang umum digunakan ole
 | Prisma ORM       | ORM & Database Migration |
 | Swagger          | API Documentation        |
 | JWT              | Authentication           |
-| Telegram Bot API | Deployment Notification  |
-| Jest             | Unit & E2E Testing       |
-| Docker           | Containerization         |
+| Telegram Bot API | Deployment Notification   |
+| Jest             | Unit & E2E Testing        |
+| Docker           | Containerization          |
+| Redis            | Queue Broker              |
+| BullMQ           | Background Job Processing |
 
 ---
 
@@ -93,6 +95,63 @@ Each feature contains its own:
 
 This structure makes the codebase more modular and easier to extend.
 
+---
+
+## Asynchronous Deployment Architecture
+
+OpsFlow uses **BullMQ** and **Redis** to process deployment jobs asynchronously.
+
+Instead of executing deployment logic directly inside the HTTP request lifecycle, deployment tasks are pushed into a queue and processed by background workers.
+
+This architecture improves:
+
+- API responsiveness
+- Reliability with automatic retry
+- Scalability for high deployment volume
+- Fault tolerance for long-running jobs
+
+### Why Redis + BullMQ?
+
+Traditional synchronous deployment processing blocks the API request until the deployment is finished.
+
+By using BullMQ and Redis:
+
+- The API responds immediately after creating the deployment
+- Deployment jobs run in the background
+- Failed jobs can retry automatically
+- The system can scale horizontally with multiple workers
+
+This approach makes the deployment pipeline more resilient and production-ready.
+
+---
+
+## Deployment Queue Flow
+
+```mermaid
+flowchart TD
+    A[Client Request] --> B[Create Deployment API]
+    B --> C[Deployments Service]
+    C --> D[Create Deployment Record]
+    D --> E[Status: PENDING]
+    E --> F[Push Job to Queue]
+
+    F --> G[(Redis Queue)]
+
+    G --> H[BullMQ Worker]
+    H --> I[Status: RUNNING]
+    I --> J[Execute Deployment Process]
+
+    J --> K{Deployment Success?}
+
+    K -->|Yes| L[Status: SUCCESS]
+    K -->|No| M[Status: FAILED]
+
+    L --> N[Update Related Tasks]
+    M --> O[Retry with Backoff]
+
+    N --> P[Send Telegram Notification]
+    O --> H
+```
 ---
 
 ## Entity Relationship Diagram (ERD)
@@ -545,14 +604,17 @@ npm run test:cov
 
 ## Future Improvements
 
-- Docker Compose Support
-- BullMQ Queue Processing
+- Queue Monitoring Dashboard
+- Dead Letter Queue (DLQ)
 - Deployment Rollback System
+- Multi Worker Horizontal Scaling
+- Scheduled Deployment Jobs
 - Webhook Integration
 - Internal Metrics Endpoint
 - GitHub Actions CI Pipeline
 - Multi Notification Provider (Slack/Email)
 - Cloud Provider Integration (AWS/GCP)
+- Metrics and Observability
 
 ---
 

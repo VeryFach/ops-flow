@@ -9,6 +9,7 @@ import { CreateDeploymentDto } from './dto/create-deployment.dto';
 import { UpdateDeploymentStatusDto } from './dto/update-deployment-status.dto';
 import { DeploymentStatus, Prisma } from '@prisma/client';
 import { DeploymentQueue } from '../../jobs/deployment.queue';
+import type { CurrentUser } from '../../common/interfaces/current-user.interface';
 
 @Injectable()
 export class DeploymentsService {
@@ -18,13 +19,13 @@ export class DeploymentsService {
     private deploymentQueue: DeploymentQueue,
   ) {}
 
-  async create(userId: string, dto: CreateDeploymentDto) {
+  async create(currentUser: CurrentUser, dto: CreateDeploymentDto) {
     // Check if user has access to project
     const projectMember = await this.prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
           projectId: dto.projectId,
-          userId: userId,
+          userId: currentUser.id,
         },
       },
       include: {
@@ -62,7 +63,7 @@ export class DeploymentsService {
         version: dto.version,
         status: DeploymentStatus.PENDING,
         projectId: dto.projectId,
-        deployedById: userId,
+        deployedById: currentUser.id,
       },
     });
 
@@ -84,110 +85,125 @@ export class DeploymentsService {
     // Enqueue async deployment processing via BullMQ
     await this.deploymentQueue.addDeployment({
       deploymentId: deployment.id,
-      userId,
+      userId: currentUser.id,
       version: dto.version,
       projectId: dto.projectId,
       taskIds: dto.taskIds ?? [],
     });
 
-    return this.findOne(deployment.id, userId);
+    return this.findOne(deployment.id, currentUser);
   }
 
-  async findAll(userId: string, projectId?: string) {
+  async findAll(currentUser: CurrentUser, projectId?: string) {
+    // SUPER_ADMIN: global access — return all deployments
+    if (currentUser.role === 'SUPER_ADMIN') {
+      return this.prisma.deployment.findMany({
+        ...(projectId ? { where: { projectId } } : {}),
+        include: {
+          project: {
+            select: { id: true, name: true, workspaceId: true },
+          },
+          deployedBy: {
+            select: { id: true, name: true, email: true },
+          },
+          tasks: {
+            include: {
+              task: {
+                select: { id: true, title: true, status: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    // USER: scoped to projects they belong to
     const whereCondition: Prisma.DeploymentWhereInput = {
       project: {
         projectMembers: {
-          some: {
-            userId: userId,
-          },
+          some: { userId: currentUser.id },
         },
       },
       ...(projectId ? { projectId } : {}),
     };
 
-    const deployments = await this.prisma.deployment.findMany({
+    return this.prisma.deployment.findMany({
       where: whereCondition,
       include: {
         project: {
-          select: {
-            id: true,
-            name: true,
-            workspaceId: true,
-          },
+          select: { id: true, name: true, workspaceId: true },
         },
         deployedBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
+          select: { id: true, name: true, email: true },
         },
         tasks: {
           include: {
             task: {
-              select: {
-                id: true,
-                title: true,
-                status: true,
-              },
+              select: { id: true, title: true, status: true },
             },
           },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
-
-    return deployments;
   }
 
-  async findOne(deploymentId: string, userId: string) {
+  async findOne(deploymentId: string, currentUser: CurrentUser) {
+    const includeClause = {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          workspaceId: true,
+          workspace: {
+            select: { id: true, name: true, slug: true },
+          },
+        },
+      },
+      deployedBy: {
+        select: { id: true, name: true, email: true },
+      },
+      tasks: {
+        include: {
+          task: {
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              priority: true,
+            },
+          },
+        },
+      },
+    };
+
+    // SUPER_ADMIN: global access — find by ID only
+    if (currentUser.role === 'SUPER_ADMIN') {
+      const deployment = await this.prisma.deployment.findUnique({
+        where: { id: deploymentId },
+        include: includeClause,
+      });
+
+      if (!deployment) {
+        throw new NotFoundException('Deployment not found');
+      }
+
+      return deployment;
+    }
+
+    // USER: must belong to the deployment's project
     const deployment = await this.prisma.deployment.findFirst({
       where: {
         id: deploymentId,
         project: {
           projectMembers: {
-            some: {
-              userId: userId,
-            },
+            some: { userId: currentUser.id },
           },
         },
       },
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            workspaceId: true,
-            workspace: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-              },
-            },
-          },
-        },
-        deployedBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        tasks: {
-          include: {
-            task: {
-              select: {
-                id: true,
-                title: true,
-                status: true,
-                priority: true,
-              },
-            },
-          },
-        },
-      },
+      include: includeClause,
     });
 
     if (!deployment) {
@@ -201,7 +217,7 @@ export class DeploymentsService {
 
   async updateStatus(
     deploymentId: string,
-    userId: string,
+    currentUser: CurrentUser,
     dto: UpdateDeploymentStatusDto,
   ) {
     // Check if user is project admin or deployment executor
@@ -221,9 +237,9 @@ export class DeploymentsService {
     }
 
     const isProjectAdmin = deployment.project.projectMembers.some(
-      (m) => m.userId === userId && m.role === 'ADMIN',
+      (m) => m.userId === currentUser.id && m.role === 'ADMIN',
     );
-    const isDeployer = deployment.deployedById === userId;
+    const isDeployer = deployment.deployedById === currentUser.id;
 
     if (!isProjectAdmin && !isDeployer) {
       throw new ForbiddenException(
@@ -250,7 +266,7 @@ export class DeploymentsService {
     return updatedDeployment;
   }
 
-  async remove(deploymentId: string, userId: string) {
+  async remove(deploymentId: string, currentUser: CurrentUser) {
     // Check if user is workspace admin or project admin
     const deployment = await this.prisma.deployment.findUnique({
       where: { id: deploymentId },
@@ -269,13 +285,13 @@ export class DeploymentsService {
     }
 
     const isProjectAdmin = deployment.project.projectMembers.some(
-      (m) => m.userId === userId && m.role === 'ADMIN',
+      (m) => m.userId === currentUser.id && m.role === 'ADMIN',
     );
 
     const isWorkspaceAdmin = await this.prisma.workspaceMember.findFirst({
       where: {
         workspaceId: deployment.project.workspaceId!,
-        userId: userId,
+        userId: currentUser.id,
         role: { in: ['OWNER', 'ADMIN'] },
       },
     });

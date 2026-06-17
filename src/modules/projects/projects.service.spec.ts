@@ -10,6 +10,7 @@ describe('ProjectsService', () => {
   let prisma: PrismaService;
 
   const mockUserId = 'user-1';
+  const mockCurrentUser = { id: mockUserId, role: 'USER' };
   const mockWorkspaceId = 'workspace-1';
   const mockProjectId = 'project-1';
   const mockProject = {
@@ -77,14 +78,14 @@ describe('ProjectsService', () => {
         callback(mockTx),
       );
 
-      const result = await service.create(mockUserId, createDto);
+      const result = await service.create(mockCurrentUser, createDto);
       expect(result).toEqual(mockProject);
       expect(mockTx.project.create).toHaveBeenCalled();
     });
 
     it('should throw ForbiddenException if user not in workspace', async () => {
       (prisma.workspaceMember.findUnique as jest.Mock).mockResolvedValue(null);
-      await expect(service.create(mockUserId, createDto)).rejects.toThrow(
+      await expect(service.create(mockCurrentUser, createDto)).rejects.toThrow(
         ForbiddenException,
       );
     });
@@ -93,15 +94,15 @@ describe('ProjectsService', () => {
   describe('findOne', () => {
     it('should return project if user is member', async () => {
       (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-      const result = await service.findOne(mockProjectId, mockUserId);
+      const result = await service.findOne(mockProjectId, mockCurrentUser);
       expect(result).toEqual(mockProject);
     });
 
     it('should throw NotFoundException if not found', async () => {
       (prisma.project.findFirst as jest.Mock).mockResolvedValue(null);
-      await expect(service.findOne(mockProjectId, mockUserId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.findOne(mockProjectId, mockCurrentUser),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

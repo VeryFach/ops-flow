@@ -10,6 +10,7 @@ import { ProjectsModule } from './modules/projects/projects.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { DeploymentsModule } from './modules/deployments/deployments.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { StatusHistoryModule } from './modules/status-history/status-history.module';
 import { APP_FILTER } from '@nestjs/core';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -27,6 +28,7 @@ import { JobsModule } from './jobs/jobs.module';
     TelegramModule,
     DeploymentsModule,
     AuditModule,
+    AdminModule,
     StatusHistoryModule,
     JobsModule,
   ],

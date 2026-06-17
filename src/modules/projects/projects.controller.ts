@@ -25,6 +25,7 @@ import { GetUser } from '../../common/decorators/get-user.decorator';
 import { ProjectRoleGuard } from '../../common/guards/project-role.guard';
 import { ProjectRoles } from '../../common/decorators/project-roles.decorator';
 import { ProjectMemberRole } from '@prisma/client';
+import type { AuthUser } from '../../common/interfaces/authenticated-request.interface';
 
 @ApiTags('projects')
 @ApiBearerAuth()
@@ -36,8 +37,8 @@ export class ProjectsController {
   @Post()
   @ApiOperation({ summary: 'Create a new project' })
   @ApiResponse({ status: 201, description: 'Project created successfully' })
-  create(@GetUser('id') userId: string, @Body() dto: CreateProjectDto) {
-    return this.projectsService.create(userId, dto);
+  create(@GetUser() user: AuthUser, @Body() dto: CreateProjectDto) {
+    return this.projectsService.create({ id: user.id, role: user.role }, dto);
   }
 
   @Get()
@@ -48,19 +49,22 @@ export class ProjectsController {
     description: 'Filter by workspace ID',
   })
   findAll(
-    @GetUser('id') userId: string,
+    @GetUser() user: AuthUser,
     @Query('workspaceId') workspaceId?: string,
   ) {
-    return this.projectsService.findAll(userId, workspaceId);
+    return this.projectsService.findAll(
+      { id: user.id, role: user.role },
+      workspaceId,
+    );
   }
 
   @Get(':projectId')
   @ApiOperation({ summary: 'Get project by ID' })
-  findOne(
-    @Param('projectId') projectId: string,
-    @GetUser('id') userId: string,
-  ) {
-    return this.projectsService.findOne(projectId, userId);
+  findOne(@Param('projectId') projectId: string, @GetUser() user: AuthUser) {
+    return this.projectsService.findOne(projectId, {
+      id: user.id,
+      role: user.role,
+    });
   }
 
   @Patch(':projectId')
@@ -69,16 +73,26 @@ export class ProjectsController {
   @ProjectRoles(ProjectMemberRole.ADMIN)
   update(
     @Param('projectId') projectId: string,
-    @GetUser('id') userId: string,
+    @GetUser() user: AuthUser,
     @Body() dto: UpdateProjectDto,
   ) {
-    return this.projectsService.update(projectId, userId, dto);
+    return this.projectsService.update(
+      projectId,
+      {
+        id: user.id,
+        role: user.role,
+      },
+      dto,
+    );
   }
 
   @Delete(':projectId')
   @ApiOperation({ summary: 'Delete project (soft delete)' })
-  remove(@Param('projectId') projectId: string, @GetUser('id') userId: string) {
-    return this.projectsService.remove(projectId, userId);
+  remove(@Param('projectId') projectId: string, @GetUser() user: AuthUser) {
+    return this.projectsService.remove(projectId, {
+      id: user.id,
+      role: user.role,
+    });
   }
 
   @Post(':projectId/members')
@@ -87,10 +101,17 @@ export class ProjectsController {
   @ProjectRoles(ProjectMemberRole.ADMIN)
   addMember(
     @Param('projectId') projectId: string,
-    @GetUser('id') userId: string,
+    @GetUser() user: AuthUser,
     @Body() dto: AddProjectMemberDto,
   ) {
-    return this.projectsService.addMember(projectId, userId, dto);
+    return this.projectsService.addMember(
+      projectId,
+      {
+        id: user.id,
+        role: user.role,
+      },
+      dto,
+    );
   }
 
   @Patch(':projectId/members/:memberId')
@@ -99,13 +120,13 @@ export class ProjectsController {
   @ProjectRoles(ProjectMemberRole.ADMIN)
   updateMemberRole(
     @Param('projectId') projectId: string,
-    @GetUser('id') userId: string,
+    @GetUser() user: AuthUser,
     @Param('memberId') memberId: string,
     @Body('role') role: ProjectMemberRole,
   ) {
     return this.projectsService.updateMemberRole(
       projectId,
-      userId,
+      { id: user.id, role: user.role },
       memberId,
       role,
     );
@@ -117,9 +138,16 @@ export class ProjectsController {
   @ProjectRoles(ProjectMemberRole.ADMIN)
   removeMember(
     @Param('projectId') projectId: string,
-    @GetUser('id') userId: string,
+    @GetUser() user: AuthUser,
     @Param('memberId') memberId: string,
   ) {
-    return this.projectsService.removeMember(projectId, userId, memberId);
+    return this.projectsService.removeMember(
+      projectId,
+      {
+        id: user.id,
+        role: user.role,
+      },
+      memberId,
+    );
   }
 }

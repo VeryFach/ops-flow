@@ -23,6 +23,7 @@ import { CreateWorkspaceDto } from './dto/create-workspace.dto';
 import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { WorkspaceRoleGuard } from '../../common/guards/workspace-role.guard';
 import { WorkspacesService } from './workspaces.service';
+import type { AuthUser } from '../../common/interfaces/authenticated-request.interface';
 
 @ApiTags('workspaces')
 @ApiBearerAuth()
@@ -34,42 +35,55 @@ export class WorkspacesController {
   @Post()
   @ApiOperation({ summary: 'Create a new workspace' })
   @ApiResponse({ status: 201, description: 'Workspace created successfully' })
-  create(@GetUser('id') userId: string, @Body() dto: CreateWorkspaceDto) {
-    return this.workspacesService.create(userId, dto);
+  create(@GetUser() user: AuthUser, @Body() dto: CreateWorkspaceDto) {
+    return this.workspacesService.create({ id: user.id, role: user.role }, dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all workspaces for current user' })
-  findAll(@GetUser('id') userId: string) {
-    return this.workspacesService.findAll(userId);
+  findAll(@GetUser() user: AuthUser) {
+    return this.workspacesService.findAll({
+      id: user.id,
+      role: user.role,
+    });
   }
 
   @Get(':workspaceId')
   @ApiOperation({ summary: 'Get workspace by ID' })
   findOne(
     @Param('workspaceId') workspaceId: string,
-    @GetUser('id') userId: string,
+    @GetUser() user: AuthUser,
   ) {
-    return this.workspacesService.findOne(workspaceId, userId);
+    return this.workspacesService.findOne(workspaceId, {
+      id: user.id,
+      role: user.role,
+    });
   }
 
   @Patch(':workspaceId')
   @ApiOperation({ summary: 'Update workspace' })
   update(
     @Param('workspaceId') workspaceId: string,
-    @GetUser('id') userId: string,
+    @GetUser() user: AuthUser,
     @Body() dto: UpdateWorkspaceDto,
   ) {
-    return this.workspacesService.update(workspaceId, userId, dto);
+    return this.workspacesService.update(
+      workspaceId,
+      {
+        id: user.id,
+        role: user.role,
+      },
+      dto,
+    );
   }
 
   @Delete(':workspaceId')
   @ApiOperation({ summary: 'Delete workspace (soft delete)' })
-  remove(
-    @Param('workspaceId') workspaceId: string,
-    @GetUser('id') userId: string,
-  ) {
-    return this.workspacesService.remove(workspaceId, userId);
+  remove(@Param('workspaceId') workspaceId: string, @GetUser() user: AuthUser) {
+    return this.workspacesService.remove(workspaceId, {
+      id: user.id,
+      role: user.role,
+    });
   }
 
   @Post(':workspaceId/members')
@@ -78,10 +92,17 @@ export class WorkspacesController {
   @WorkspaceRoles(WorkspaceMemberRole.OWNER, WorkspaceMemberRole.ADMIN)
   addMember(
     @Param('workspaceId') workspaceId: string,
-    @GetUser('id') userId: string,
+    @GetUser() user: AuthUser,
     @Body() dto: AddMemberDto,
   ) {
-    return this.workspacesService.addMember(workspaceId, userId, dto);
+    return this.workspacesService.addMember(
+      workspaceId,
+      {
+        id: user.id,
+        role: user.role,
+      },
+      dto,
+    );
   }
 
   @Patch(':workspaceId/members/:memberId')
@@ -90,13 +111,13 @@ export class WorkspacesController {
   @WorkspaceRoles(WorkspaceMemberRole.OWNER)
   updateMemberRole(
     @Param('workspaceId') workspaceId: string,
-    @GetUser('id') userId: string,
+    @GetUser() user: AuthUser,
     @Param('memberId') memberId: string,
     @Body('role') role: WorkspaceMemberRole,
   ) {
     return this.workspacesService.updateMemberRole(
       workspaceId,
-      userId,
+      { id: user.id, role: user.role },
       memberId,
       role,
     );
@@ -108,9 +129,16 @@ export class WorkspacesController {
   @WorkspaceRoles(WorkspaceMemberRole.OWNER, WorkspaceMemberRole.ADMIN)
   removeMember(
     @Param('workspaceId') workspaceId: string,
-    @GetUser('id') userId: string,
+    @GetUser() user: AuthUser,
     @Param('memberId') memberId: string,
   ) {
-    return this.workspacesService.removeMember(workspaceId, userId, memberId);
+    return this.workspacesService.removeMember(
+      workspaceId,
+      {
+        id: user.id,
+        role: user.role,
+      },
+      memberId,
+    );
   }
 }

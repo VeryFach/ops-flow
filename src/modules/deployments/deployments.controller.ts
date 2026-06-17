@@ -22,6 +22,7 @@ import { JwtGuard } from '../../common/guards/jwt.guard';
 import { GetUser } from '../../common/decorators/get-user.decorator';
 import { DeploymentRoleGuard } from '../../common/guards/deployment-role.guard';
 import { DeploymentRoles } from '../../common/decorators/deployment-roles.decorator';
+import type { AuthUser } from '../../common/interfaces/authenticated-request.interface';
 
 @ApiTags('deployments')
 @ApiBearerAuth()
@@ -33,26 +34,32 @@ export class DeploymentsController {
   @Post()
   @ApiOperation({ summary: 'Create a new deployment' })
   @ApiResponse({ status: 201, description: 'Deployment created successfully' })
-  create(@GetUser('id') userId: string, @Body() dto: CreateDeploymentDto) {
-    return this.deploymentsService.create(userId, dto);
+  create(@GetUser() user: AuthUser, @Body() dto: CreateDeploymentDto) {
+    return this.deploymentsService.create(
+      { id: user.id, role: user.role },
+      dto,
+    );
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all deployments' })
-  findAll(
-    @GetUser('id') userId: string,
-    @Query('projectId') projectId?: string,
-  ) {
-    return this.deploymentsService.findAll(userId, projectId);
+  findAll(@GetUser() user: AuthUser, @Query('projectId') projectId?: string) {
+    return this.deploymentsService.findAll(
+      { id: user.id, role: user.role },
+      projectId,
+    );
   }
 
   @Get(':deploymentId')
   @ApiOperation({ summary: 'Get deployment by ID' })
   findOne(
     @Param('deploymentId') deploymentId: string,
-    @GetUser('id') userId: string,
+    @GetUser() user: AuthUser,
   ) {
-    return this.deploymentsService.findOne(deploymentId, userId);
+    return this.deploymentsService.findOne(deploymentId, {
+      id: user.id,
+      role: user.role,
+    });
   }
 
   @Patch(':deploymentId/status')
@@ -61,10 +68,17 @@ export class DeploymentsController {
   @DeploymentRoles('PROJECT_ADMIN', 'WORKSPACE_ADMIN')
   updateStatus(
     @Param('deploymentId') deploymentId: string,
-    @GetUser('id') userId: string,
+    @GetUser() user: AuthUser,
     @Body() dto: UpdateDeploymentStatusDto,
   ) {
-    return this.deploymentsService.updateStatus(deploymentId, userId, dto);
+    return this.deploymentsService.updateStatus(
+      deploymentId,
+      {
+        id: user.id,
+        role: user.role,
+      },
+      dto,
+    );
   }
 
   @Delete(':deploymentId')
@@ -73,8 +87,11 @@ export class DeploymentsController {
   @DeploymentRoles('PROJECT_ADMIN', 'WORKSPACE_ADMIN')
   remove(
     @Param('deploymentId') deploymentId: string,
-    @GetUser('id') userId: string,
+    @GetUser() user: AuthUser,
   ) {
-    return this.deploymentsService.remove(deploymentId, userId);
+    return this.deploymentsService.remove(deploymentId, {
+      id: user.id,
+      role: user.role,
+    });
   }
 }

@@ -9,12 +9,13 @@ import { CreateWorkspaceDto } from './dto/create-workspace.dto';
 import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { AddMemberDto } from './dto/add-member.dto';
 import { WorkspaceMemberRole } from '@prisma/client';
+import type { CurrentUser } from '../../common/interfaces/current-user.interface';
 
 @Injectable()
 export class WorkspacesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(userId: string, dto: CreateWorkspaceDto) {
+  async create(currentUser: CurrentUser, dto: CreateWorkspaceDto) {
     // Check if slug is unique
     const existingWorkspace = await this.prisma.workspace.findUnique({
       where: { slug: dto.slug },
@@ -30,14 +31,14 @@ export class WorkspacesService {
         data: {
           name: dto.name,
           slug: dto.slug,
-          ownerId: userId,
+          ownerId: currentUser.id,
         },
       });
 
       await prisma.workspaceMember.create({
         data: {
           workspaceId: newWorkspace.id,
-          userId: userId,
+          userId: currentUser.id,
           role: WorkspaceMemberRole.OWNER,
         },
       });
@@ -48,67 +49,96 @@ export class WorkspacesService {
     return workspace;
   }
 
-  async findAll(userId: string) {
-    const workspaces = await this.prisma.workspace.findMany({
+  async findAll(currentUser: CurrentUser) {
+    // SUPER_ADMIN: global access — return all workspaces
+    if (currentUser.role === 'SUPER_ADMIN') {
+      return this.prisma.workspace.findMany({
+        include: {
+          owner: {
+            select: { id: true, name: true, email: true },
+          },
+          members: {
+            include: {
+              user: {
+                select: { id: true, name: true, email: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    // USER: scoped to own memberships
+    return this.prisma.workspace.findMany({
       where: {
         members: {
-          some: {
-            userId: userId,
-          },
+          some: { userId: currentUser.id },
         },
       },
       include: {
         owner: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
+          select: { id: true, name: true, email: true },
         },
         members: {
           include: {
             user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
+              select: { id: true, name: true, email: true },
             },
           },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
-
-    return workspaces;
   }
 
-  async findOne(workspaceId: string, userId: string) {
+  async findOne(workspaceId: string, currentUser: CurrentUser) {
+    // SUPER_ADMIN: global access — find by ID only
+    if (currentUser.role === 'SUPER_ADMIN') {
+      const workspace = await this.prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        include: {
+          owner: {
+            select: { id: true, name: true, email: true },
+          },
+          members: {
+            include: {
+              user: {
+                select: { id: true, name: true, email: true },
+              },
+            },
+          },
+          projects: {
+            where: { deletedAt: null },
+            take: 10,
+            orderBy: { createdAt: 'desc' },
+          },
+        },
+      });
+
+      if (!workspace) {
+        throw new NotFoundException('Workspace not found');
+      }
+
+      return workspace;
+    }
+
+    // USER: must be a member
     const workspace = await this.prisma.workspace.findFirst({
       where: {
         id: workspaceId,
         members: {
-          some: {
-            userId: userId,
-          },
+          some: { userId: currentUser.id },
         },
       },
       include: {
         owner: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
+          select: { id: true, name: true, email: true },
         },
         members: {
           include: {
             user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
+              select: { id: true, name: true, email: true },
             },
           },
         },
@@ -129,13 +159,17 @@ export class WorkspacesService {
     return workspace;
   }
 
-  async update(workspaceId: string, userId: string, dto: UpdateWorkspaceDto) {
+  async update(
+    workspaceId: string,
+    currentUser: CurrentUser,
+    dto: UpdateWorkspaceDto,
+  ) {
     // Check if user is owner or admin
     const member = await this.prisma.workspaceMember.findUnique({
       where: {
         workspaceId_userId: {
           workspaceId,
-          userId,
+          userId: currentUser.id,
         },
       },
     });
@@ -172,7 +206,7 @@ export class WorkspacesService {
     return workspace;
   }
 
-  async remove(workspaceId: string, userId: string) {
+  async remove(workspaceId: string, currentUser: CurrentUser) {
     // Check if user is owner
     const workspace = await this.prisma.workspace.findUnique({
       where: { id: workspaceId },
@@ -182,7 +216,7 @@ export class WorkspacesService {
       throw new NotFoundException('Workspace not found');
     }
 
-    if (workspace.ownerId !== userId) {
+    if (workspace.ownerId !== currentUser.id) {
       throw new ForbiddenException('Only workspace owner can delete workspace');
     }
 
@@ -195,13 +229,17 @@ export class WorkspacesService {
     return { message: 'Workspace deleted successfully' };
   }
 
-  async addMember(workspaceId: string, userId: string, dto: AddMemberDto) {
+  async addMember(
+    workspaceId: string,
+    currentUser: CurrentUser,
+    dto: AddMemberDto,
+  ) {
     // Check if requester is owner or admin
     const requester = await this.prisma.workspaceMember.findUnique({
       where: {
         workspaceId_userId: {
           workspaceId,
-          userId,
+          userId: currentUser.id,
         },
       },
     });
@@ -261,7 +299,7 @@ export class WorkspacesService {
 
   async updateMemberRole(
     workspaceId: string,
-    userId: string,
+    currentUser: CurrentUser,
     memberId: string,
     role: WorkspaceMemberRole,
   ) {
@@ -270,7 +308,7 @@ export class WorkspacesService {
       where: {
         workspaceId_userId: {
           workspaceId,
-          userId,
+          userId: currentUser.id,
         },
       },
     });
@@ -312,13 +350,17 @@ export class WorkspacesService {
     return member;
   }
 
-  async removeMember(workspaceId: string, userId: string, memberId: string) {
+  async removeMember(
+    workspaceId: string,
+    currentUser: CurrentUser,
+    memberId: string,
+  ) {
     // Check if requester is owner or admin
     const requester = await this.prisma.workspaceMember.findUnique({
       where: {
         workspaceId_userId: {
           workspaceId,
-          userId,
+          userId: currentUser.id,
         },
       },
     });
@@ -343,7 +385,10 @@ export class WorkspacesService {
     }
 
     // Cannot remove self if not owner
-    if (memberId === userId && requester.role !== WorkspaceMemberRole.OWNER) {
+    if (
+      memberId === currentUser.id &&
+      requester.role !== WorkspaceMemberRole.OWNER
+    ) {
       throw new ForbiddenException(
         'Only workspace owner can remove themselves',
       );

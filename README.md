@@ -15,6 +15,7 @@ Project ini dibuat sebagai simulasi workflow operasional yang umum digunakan ole
 - Deployment Tracking
 - Telegram Notification Integration
 - Swagger API Documentation
+- Super Admin Dashboard & Global Oversight
 - End-to-End Testing (E2E Testing)
 
 ---
@@ -54,6 +55,7 @@ src/
 │   ├── deployments/
 │   ├── notifications/
 │   ├── audit/
+│   ├── admin/
 │   ├── status-history/
 │   └── prisma/
 │
@@ -300,6 +302,23 @@ Responsibilities:
 - Execute deployments
 - Participate in workspaces
 
+### Super Admin vs Regular User
+
+OpsFlow enforces role differentiation at the service layer. Every public service method accepts a `currentUser` context and branches its Prisma query accordingly:
+
+| Capability | USER | SUPER_ADMIN |
+|---|---|---|
+| Workspaces | Can only view workspaces they are a member of | Sees ALL workspaces across the platform |
+| Projects | Can only view projects they belong to | Sees ALL projects in every workspace |
+| Tasks | Can only view tasks assigned to them | Sees ALL tasks across every project |
+| Deployments | Can only view deployments they initiated | Sees ALL deployments platform-wide |
+| Edit Profile | Can only edit their own profile (403 Forbidden otherwise) | Can edit any user's profile |
+| User Role Management | Not permitted | Can promote/demote any user via `/admin/users/:id/role` |
+| Audit Logs | Not accessible | Exclusive access to full audit trail via `/admin/audit-logs` |
+| Failed Deployments | Can only see their own failures | Can view ALL failed deployments via `/admin/deployments/failed` |
+
+**Architecture justification:** Instead of scattering role checks across every controller, a dedicated `AdminModule` centralizes platform-wide operations (user management, audit review, failure monitoring). The `RolesGuard` + `@Roles('SUPER_ADMIN')` decorator ensures that every `/admin/*` route is rejected before reaching the controller if the caller is not a SUPER_ADMIN. Service-level branching (`currentUser.role === 'SUPER_ADMIN'`) provides a second layer of defense, guaranteeing that even internal or programmatic calls respect the boundary.
+
 ---
 
 ### Workspace
@@ -491,6 +510,16 @@ Responsible for:
 - Persisting audit records
 - Supporting compliance and traceability
 
+#### Admin Controller
+
+Responsible for:
+
+- Platform-wide user management (`GET /admin/users`, `PATCH /admin/users/:id/role`)
+- Aggregating and serving audit logs (`GET /admin/audit-logs`)
+- Monitoring failed deployments (`GET /admin/deployments/failed`)
+- Interacting directly with the **Audit Service** (`AuditLogService`) to write audit entries when admin actions are performed (e.g., role changes)
+- All endpoints are guarded by `@Roles('SUPER_ADMIN')` — no regular USER can reach them
+
 #### Notification Service
 
 Responsible for:
@@ -530,6 +559,13 @@ Swagger UI is available after application startup:
 ```bash
 http://localhost:3000/api
 ```
+
+> **Route groups in Swagger:** The documentation distinguishes between two tag groups:
+>
+> - **Users** (`/users/*`) — Self-service endpoints for authenticated users (profile, workspaces, projects, tasks, deployments). SUPER_ADMIN users receive broader data sets on the same endpoints.
+> - **Admin** (`/admin/*`) — Platform management endpoints restricted to SUPER_ADMIN only (user management, audit logs, failed deployments).
+>
+> Every endpoint description explicitly states whether it is accessible only by the authenticated user or a SUPER_ADMIN.
 
 ---
 

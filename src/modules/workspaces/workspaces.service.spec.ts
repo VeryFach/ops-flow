@@ -13,6 +13,7 @@ describe('WorkspacesService', () => {
   let prisma: jest.Mocked<PrismaService>;
 
   const mockUserId = 'user-1';
+  const mockCurrentUser = { id: mockUserId, role: 'USER' };
   const mockWorkspaceId = 'workspace-1';
 
   const mockWorkspace = {
@@ -101,7 +102,7 @@ describe('WorkspacesService', () => {
         },
       );
 
-      const result = await service.create(mockUserId, createDto);
+      const result = await service.create(mockCurrentUser, createDto);
 
       expect(result).toEqual(mockWorkspace);
     });
@@ -111,7 +112,7 @@ describe('WorkspacesService', () => {
         mockWorkspace,
       );
 
-      await expect(service.create(mockUserId, createDto)).rejects.toThrow(
+      await expect(service.create(mockCurrentUser, createDto)).rejects.toThrow(
         ConflictException,
       );
     });
@@ -125,7 +126,7 @@ describe('WorkspacesService', () => {
 
       findManySpy.mockResolvedValue(mockWorkspaces);
 
-      const result = await service.findAll(mockUserId);
+      const result = await service.findAll(mockCurrentUser);
 
       expect(result).toEqual(mockWorkspaces);
 
@@ -147,7 +148,7 @@ describe('WorkspacesService', () => {
 
       findFirstSpy.mockResolvedValue(mockWorkspace);
 
-      const result = await service.findOne(mockWorkspaceId, mockUserId);
+      const result = await service.findOne(mockWorkspaceId, mockCurrentUser);
 
       expect(result).toMatchObject(mockWorkspace);
     });
@@ -156,7 +157,7 @@ describe('WorkspacesService', () => {
       (prisma.workspace.findFirst as jest.Mock).mockResolvedValue(null);
 
       await expect(
-        service.findOne(mockWorkspaceId, mockUserId),
+        service.findOne(mockWorkspaceId, mockCurrentUser),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -175,7 +176,7 @@ describe('WorkspacesService', () => {
 
       const result = await service.update(
         mockWorkspaceId,
-        mockUserId,
+        mockCurrentUser,
         updateDto,
       );
 
@@ -201,7 +202,7 @@ describe('WorkspacesService', () => {
 
       const result = await service.update(
         mockWorkspaceId,
-        mockUserId,
+        mockCurrentUser,
         updateDto,
       );
 
@@ -218,7 +219,7 @@ describe('WorkspacesService', () => {
       );
 
       await expect(
-        service.update(mockWorkspaceId, mockUserId, updateDto),
+        service.update(mockWorkspaceId, mockCurrentUser, updateDto),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -226,7 +227,7 @@ describe('WorkspacesService', () => {
       (prisma.workspaceMember.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
-        service.update(mockWorkspaceId, mockUserId, updateDto),
+        service.update(mockWorkspaceId, mockCurrentUser, updateDto),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -239,7 +240,7 @@ describe('WorkspacesService', () => {
       );
 
       await expect(
-        service.update(mockWorkspaceId, mockUserId, {
+        service.update(mockWorkspaceId, mockCurrentUser, {
           slug: 'existing-slug',
         }),
       ).rejects.toThrow(ConflictException);
@@ -255,7 +256,7 @@ describe('WorkspacesService', () => {
       );
       const findFirstSpy = jest.spyOn(prisma.workspace, 'findFirst');
 
-      const result = await service.update(mockWorkspaceId, mockUserId, {
+      const result = await service.update(mockWorkspaceId, mockCurrentUser, {
         name: 'New Name',
       });
 
@@ -276,7 +277,7 @@ describe('WorkspacesService', () => {
           deletedAt: new Date(),
         });
 
-      const result = await service.remove(mockWorkspaceId, mockUserId);
+      const result = await service.remove(mockWorkspaceId, mockCurrentUser);
 
       expect(result).toEqual({
         message: 'Workspace deleted successfully',
@@ -292,9 +293,9 @@ describe('WorkspacesService', () => {
     it('should throw NotFoundException when workspace does not exist', async () => {
       (prisma.workspace.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.remove(mockWorkspaceId, mockUserId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.remove(mockWorkspaceId, mockCurrentUser),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ForbiddenException when user is not owner', async () => {
@@ -303,7 +304,7 @@ describe('WorkspacesService', () => {
       );
 
       await expect(
-        service.remove(mockWorkspaceId, 'other-user'),
+        service.remove(mockWorkspaceId, { id: 'other-user', role: 'USER' }),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -341,7 +342,7 @@ describe('WorkspacesService', () => {
 
       const result = await service.addMember(
         mockWorkspaceId,
-        mockUserId,
+        mockCurrentUser,
         addMemberDto,
       );
 
@@ -371,7 +372,7 @@ describe('WorkspacesService', () => {
 
       const result = await service.addMember(
         mockWorkspaceId,
-        mockUserId,
+        mockCurrentUser,
         addMemberDto,
       );
 
@@ -388,7 +389,7 @@ describe('WorkspacesService', () => {
       );
 
       await expect(
-        service.addMember(mockWorkspaceId, mockUserId, addMemberDto),
+        service.addMember(mockWorkspaceId, mockCurrentUser, addMemberDto),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -399,7 +400,7 @@ describe('WorkspacesService', () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
-        service.addMember(mockWorkspaceId, mockUserId, addMemberDto),
+        service.addMember(mockWorkspaceId, mockCurrentUser, addMemberDto),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -424,7 +425,7 @@ describe('WorkspacesService', () => {
       });
 
       await expect(
-        service.addMember(mockWorkspaceId, mockUserId, addMemberDto),
+        service.addMember(mockWorkspaceId, mockCurrentUser, addMemberDto),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -459,7 +460,7 @@ describe('WorkspacesService', () => {
 
       const result = await service.updateMemberRole(
         mockWorkspaceId,
-        mockUserId,
+        mockCurrentUser,
         targetUserId,
         newRole,
       );
@@ -484,7 +485,7 @@ describe('WorkspacesService', () => {
       await expect(
         service.updateMemberRole(
           mockWorkspaceId,
-          mockUserId,
+          mockCurrentUser,
           targetUserId,
           newRole,
         ),
@@ -497,7 +498,7 @@ describe('WorkspacesService', () => {
       await expect(
         service.updateMemberRole(
           mockWorkspaceId,
-          mockUserId,
+          mockCurrentUser,
           targetUserId,
           newRole,
         ),
@@ -515,7 +516,7 @@ describe('WorkspacesService', () => {
       await expect(
         service.updateMemberRole(
           mockWorkspaceId,
-          mockUserId,
+          mockCurrentUser,
           mockUserId,
           newRole,
         ),
@@ -539,7 +540,7 @@ describe('WorkspacesService', () => {
 
       const result = await service.removeMember(
         mockWorkspaceId,
-        mockUserId,
+        mockCurrentUser,
         targetUserId,
       );
 
@@ -569,7 +570,7 @@ describe('WorkspacesService', () => {
 
       const result = await service.removeMember(
         mockWorkspaceId,
-        mockUserId,
+        mockCurrentUser,
         targetUserId,
       );
 
@@ -586,7 +587,7 @@ describe('WorkspacesService', () => {
       );
 
       await expect(
-        service.removeMember(mockWorkspaceId, mockUserId, targetUserId),
+        service.removeMember(mockWorkspaceId, mockCurrentUser, targetUserId),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -599,7 +600,7 @@ describe('WorkspacesService', () => {
       );
 
       await expect(
-        service.removeMember(mockWorkspaceId, mockUserId, mockUserId),
+        service.removeMember(mockWorkspaceId, mockCurrentUser, mockUserId),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -619,7 +620,11 @@ describe('WorkspacesService', () => {
       );
 
       await expect(
-        service.removeMember(mockWorkspaceId, adminId, adminId),
+        service.removeMember(
+          mockWorkspaceId,
+          { id: adminId, role: 'USER' },
+          adminId,
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -638,7 +643,7 @@ describe('WorkspacesService', () => {
 
       const result = await service.removeMember(
         mockWorkspaceId,
-        mockUserId,
+        mockCurrentUser,
         mockUserId,
       );
 

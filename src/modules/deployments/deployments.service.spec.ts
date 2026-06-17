@@ -13,10 +13,11 @@ describe('DeploymentsService', () => {
   let deploymentQueue: DeploymentQueue;
 
   const mockUserId = 'user-1';
+  const mockCurrentUser = { id: mockUserId, role: 'USER' };
   const mockProjectId = 'project-1';
-  const mockDeploymentId = 'deployment-1';
+  const mockDeploymentID = 'deployment-1';
   const mockDeployment = {
-    id: mockDeploymentId,
+    id: mockDeploymentID,
     version: 'v1.0.0',
     status: DeploymentStatus.PENDING,
     projectId: mockProjectId,
@@ -104,12 +105,12 @@ describe('DeploymentsService', () => {
         mockDeployment,
       );
 
-      const result = await service.create(mockUserId, createDto);
+      const result = await service.create(mockCurrentUser, createDto);
 
       expect(result).toEqual(mockDeployment);
       expect(prisma.deployment.create).toHaveBeenCalled();
       expect(deploymentQueue.addDeployment).toHaveBeenCalledWith({
-        deploymentId: mockDeploymentId,
+        deploymentId: mockDeploymentID,
         userId: mockUserId,
         version: 'v1.0.0',
         projectId: mockProjectId,
@@ -128,10 +129,10 @@ describe('DeploymentsService', () => {
         mockDeployment,
       );
 
-      await service.create(mockUserId, dtoNoTasks);
+      await service.create(mockCurrentUser, dtoNoTasks);
 
       expect(deploymentQueue.addDeployment).toHaveBeenCalledWith({
-        deploymentId: mockDeploymentId,
+        deploymentId: mockDeploymentID,
         userId: mockUserId,
         version: 'v1.0.0',
         projectId: mockProjectId,
@@ -141,7 +142,7 @@ describe('DeploymentsService', () => {
 
     it('should throw ForbiddenException if user not in project', async () => {
       (prisma.projectMember.findUnique as jest.Mock).mockResolvedValue(null);
-      await expect(service.create(mockUserId, createDto)).rejects.toThrow(
+      await expect(service.create(mockCurrentUser, createDto)).rejects.toThrow(
         ForbiddenException,
       );
     });
@@ -151,7 +152,7 @@ describe('DeploymentsService', () => {
         mockProjectMember,
       );
       (prisma.task.findMany as jest.Mock).mockResolvedValue([{ id: 'task-1' }]); // only one found
-      await expect(service.create(mockUserId, createDto)).rejects.toThrow(
+      await expect(service.create(mockCurrentUser, createDto)).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -162,7 +163,7 @@ describe('DeploymentsService', () => {
       (prisma.deployment.findMany as jest.Mock).mockResolvedValue([
         mockDeployment,
       ]);
-      const result = await service.findAll(mockUserId);
+      const result = await service.findAll(mockCurrentUser);
       expect(result).toEqual([mockDeployment]);
       expect(prisma.deployment.findMany).toHaveBeenCalled();
     });
@@ -173,14 +174,14 @@ describe('DeploymentsService', () => {
       (prisma.deployment.findFirst as jest.Mock).mockResolvedValue(
         mockDeployment,
       );
-      const result = await service.findOne(mockDeploymentId, mockUserId);
+      const result = await service.findOne(mockDeploymentID, mockCurrentUser);
       expect(result).toEqual(mockDeployment);
     });
 
     it('should throw NotFoundException if not found', async () => {
       (prisma.deployment.findFirst as jest.Mock).mockResolvedValue(null);
       await expect(
-        service.findOne(mockDeploymentId, mockUserId),
+        service.findOne(mockDeploymentID, mockCurrentUser),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -203,9 +204,11 @@ describe('DeploymentsService', () => {
         .spyOn(service as any, 'updateLinkedTasksStatus')
         .mockResolvedValue(undefined);
 
-      const result = await service.updateStatus(mockDeploymentId, mockUserId, {
-        status: DeploymentStatus.SUCCESS,
-      });
+      const result = await service.updateStatus(
+        mockDeploymentID,
+        mockCurrentUser,
+        { status: DeploymentStatus.SUCCESS },
+      );
       expect(result.status).toBe(DeploymentStatus.SUCCESS);
     });
 
@@ -217,7 +220,7 @@ describe('DeploymentsService', () => {
       };
       (prisma.deployment.findUnique as jest.Mock).mockResolvedValue(deployment);
       await expect(
-        service.updateStatus(mockDeploymentId, mockUserId, {
+        service.updateStatus(mockDeploymentID, mockCurrentUser, {
           status: DeploymentStatus.SUCCESS,
         }),
       ).rejects.toThrow(ForbiddenException);
@@ -235,14 +238,14 @@ describe('DeploymentsService', () => {
       };
       (prisma.deployment.findUnique as jest.Mock).mockResolvedValue(deployment);
       (prisma.deployment.delete as jest.Mock).mockResolvedValue(deployment);
-      const result = await service.remove(mockDeploymentId, mockUserId);
+      const result = await service.remove(mockDeploymentID, mockCurrentUser);
       expect(result).toEqual({ message: 'Deployment deleted successfully' });
     });
 
     it('should throw NotFoundException if deployment not found', async () => {
       (prisma.deployment.findUnique as jest.Mock).mockResolvedValue(null);
       await expect(
-        service.remove(mockDeploymentId, mockUserId),
+        service.remove(mockDeploymentID, mockCurrentUser),
       ).rejects.toThrow(NotFoundException);
     });
   });
